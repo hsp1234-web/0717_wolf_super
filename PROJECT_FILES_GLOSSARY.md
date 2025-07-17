@@ -1,4 +1,4 @@
-# 專案檔案詞彙表 (v3.0 終極整合版)
+# 專案檔案詞彙表 (v9.1.0 架構純化版)
 
 本文件旨在提供一個完整、詳細的專案檔案地圖，說明每一個檔案與目錄在【普羅米修斯之火】框架中的功能與核心職責。
 
@@ -52,9 +52,6 @@
 ├── pytest.ini
 ├── run.py
 ├── scripts/
-│   ├── verify_db.py
-│   ├── verify_factor_accuracy.py
-│   └── verify_fred_client.py
 ├── src/
 │   ├── __init__.py
 │   └── prometheus
@@ -85,9 +82,7 @@
 │       ├── pipelines/
 │       │   ├── p4_stock_factor_generation.py
 │       │   ├── p5_crypto_factor_generation.py
-│       │   ├── p6_simulation_training.py
 │       │   └── steps/
-│       └── services/
 └── tests/
     ├── conftest.py
     ├── fixtures/
@@ -114,7 +109,7 @@
 -   `poetry.lock`: **[依賴管理]** `Poetry` 的鎖定檔案。
 -   `pytest.ini`, `mypy.ini`: **[工具設定]** `Pytest` 和 `Mypy` 的設定檔。
 -   `data/`: **[數據目錄]** 存放所有數據相關檔案，包括日誌、檢查點和資料庫。
--   `scripts/`: **[輔助腳本]** 包含用於驗證、報告和診斷的輔助工具。
+-   `scripts/`: **[輔助腳本]** (已廢棄) 包含用於驗證、報告和診斷的輔助工具。
 
 ## **四、 `src/prometheus/` - 原始碼主目錄**
 
@@ -128,9 +123,7 @@
 -   `pipelines/`: **[數據處理管線]**
     -   `p4_stock_factor_generation.py`: **[管線]** 生成股票相關因子的生產線。
     -   `p5_crypto_factor_generation.py`: **[管線]** 生成加密貨幣相關因子的生產線。
-    -   `p6_simulation_training.py`: **[管線]** 訓練因子模擬器的管線。
     -   `steps/`: 包含管線中每個具體步驟的實現。
--   `services/`: **[應用服務]** 包含應用程式級別的服務，如 `FactorSimulator`。
 
 ## **五、 `tests/` - 自動化測試**
 
