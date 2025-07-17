@@ -12,11 +12,27 @@ from prometheus.core.clients.nyfed import NYFedClient
 logger = LogManager.get_instance().get_logger("StressIndexCalculator")
 
 
+# --- MOCK CLIENTS FOR TESTING ---
+class MockFredClient:
+    def fetch_data(self, symbol, **kwargs):
+        dates = pd.to_datetime(['2025-07-15', '2025-07-16', '2025-07-17'])
+        if symbol == "VIXCLS":
+            return pd.DataFrame({'VIXCLS': [12.0, 13.0, 12.5]}, index=dates)
+        if symbol == "T10Y2Y":
+            return pd.DataFrame({'T10Y2Y': [0.2, 0.21, 0.19]}, index=dates)
+        return pd.DataFrame()
+
+class MockNYFedClient:
+    def fetch_data(self, **kwargs):
+        dates = pd.to_datetime(['2025-07-15', '2025-07-16', '2025-07-17'])
+        return pd.DataFrame({'Total_Positions': [5e9, 5.1e9, 5.05e9]}, index=dates)
+
+# --- REAL IMPLEMENTATION ---
 class StressIndexCalculator:
-    def __init__(self, rolling_window=252):
+    def __init__(self, rolling_window=252, fred_client=None, nyfed_client=None):
         logger.info("正在初始化壓力指數計算引擎...")
-        self.fred_client = FredClient()
-        self.nyfed_client = NYFedClient()
+        self.fred_client = fred_client or FredClient()
+        self.nyfed_client = nyfed_client or NYFedClient()
         self.rolling_window = rolling_window
         self.logger = logging.getLogger(self.__class__.__name__)
 
