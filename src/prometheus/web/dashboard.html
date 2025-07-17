@@ -4,22 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>作戰指揮中心</title>
-    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* 增加一個平滑的背景顏色過渡效果 */
-        body {
-            transition: background-color 0.5s ease;
-        }
-    </style>
 </head>
 <body class="bg-gray-900 text-gray-200 font-sans flex items-center justify-center min-h-screen">
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 w-full max-w-2xl">
-        <h1 class="text-3xl font-bold text-center text-cyan-400 mb-6">
-            普羅米修斯 - 作戰指揮中心
-        </h1>
-
-        <!-- 數據顯示區域 -->
+        <h1 class="text-3xl font-bold text-center text-cyan-400 mb-6">普羅米修斯 - 作戰指揮中心</h1>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
             <div class="bg-gray-700/50 p-4 rounded-lg">
                 <h2 class="text-lg font-semibold text-gray-400">系統壓力指數</h2>
@@ -30,45 +19,29 @@
                 <p id="active-strategies" class="text-4xl font-mono font-bold text-green-400">讀取中...</p>
             </div>
         </div>
-
-        <!-- 狀態指示燈 -->
         <div class="mt-6 flex items-center justify-center">
             <div id="status-light" class="w-4 h-4 rounded-full bg-yellow-500 animate-pulse"></div>
             <p id="status-text" class="ml-3 text-gray-400">正在連接至後端...</p>
         </div>
     </div>
-
-    <!-- 動態數據獲取腳本 -->
     <script>
-        // 當 DOM 完全載入後執行
         document.addEventListener('DOMContentLoaded', () => {
             const stressIndexElem = document.getElementById('stress-index');
             const activeStrategiesElem = document.getElementById('active-strategies');
             const statusLightElem = document.getElementById('status-light');
             const statusTextElem = document.getElementById('status-text');
-
             async function fetchSystemStatus() {
                 try {
                     const response = await fetch('/api/v1/system_status');
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP 錯誤！狀態: ${response.status}`);
-                    }
-
+                    if (!response.ok) throw new Error(`HTTP 錯誤！狀態: ${response.status}`);
                     const data = await response.json();
-
-                    // 更新數據
                     stressIndexElem.textContent = data.stress_index;
                     activeStrategiesElem.textContent = data.active_strategies;
-
-                    // 更新狀態指示燈
                     statusLightElem.classList.remove('bg-yellow-500', 'animate-pulse', 'bg-red-500');
                     statusLightElem.classList.add('bg-green-500');
                     statusTextElem.textContent = '已連接，數據同步正常';
-
                 } catch (error) {
                     console.error('無法獲取系統狀態:', error);
-                    // 更新為錯誤狀態
                     stressIndexElem.textContent = 'N/A';
                     activeStrategiesElem.textContent = 'N/A';
                     statusLightElem.classList.remove('bg-yellow-500', 'animate-pulse', 'bg-green-500');
@@ -76,8 +49,6 @@
                     statusTextElem.textContent = '與後端通訊中斷';
                 }
             }
-
-            // 立即執行一次，然後設定每 5 秒自動刷新
             fetchSystemStatus();
             setInterval(fetchSystemStatus, 5000);
         });
