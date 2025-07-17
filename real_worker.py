@@ -3,82 +3,101 @@ import sqlite3
 import time
 import logging
 import os
-import random
+import traceback
+import signal
 
-logging.basicConfig(level=logging.INFO, format='[實戰工人] %(asctime)s - %(message)s')
-DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), 'tasks.sqlite'))
+from src.prometheus.core.constants import DB_PATH, CONFIG_PATH
+from src.prometheus.core.logging_config import setup_logging
+from src.prometheus.entrypoints.query_gateway import init_db
 
-def init_db():
-    """初始化任務資料庫與資料表。"""
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tasks (
-            task_id TEXT PRIMARY KEY,
-            task_type TEXT NOT NULL,
-            status TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            result TEXT
-        )
-        """)
-        conn.commit()
-        logging.info("任務資料庫已成功初始化。")
+setup_logging(process_name="WORKER")
 
-def execute_deep_analysis(task_id):
-    """模擬一個真實的、有隨機性的深度分析任務。"""
-    logging.info(f"任務 {task_id}: 開始執行深度分析...")
-    # 模擬複雜計算
-    time.sleep(5)
-    # 模擬可能成功或失敗的結果
-    if random.random() > 0.1: # 90% 的成功率
-        result_message = f"分析完成。市場壓力指數評估為: {random.randint(20, 80)}"
+PROMETHEUS_ENV = os.getenv('PROMETHEUS_ENV', 'production')
+if PROMETHEUS_ENV == 'test':
+    from src.prometheus.core.analysis.mock_data_engine import MockDataEngine as DataEngine
+else:
+    from src.prometheus.core.analysis.data_engine import DataEngine
+
+from src.prometheus.core.analysis.stress_index import StressIndexCalculator as StressIndex
+from src.prometheus.core.config import config
+
+shutdown_signal = False
+def handle_signal(signum, frame):
+    global shutdown_signal
+    logging.info("接收到關閉信號 (毒丸)，將在當前任務完成後退出。")
+    shutdown_signal = True
+
+signal.signal(signal.SIGTERM, handle_signal)
+signal.signal(signal.SIGINT, handle_signal)
+
+def execute_stress_index_analysis(task_id):
+    """執行市場壓力指數分析（模式自適應）。"""
+    logging.info(f"任務 {task_id}: 開始執行壓力指數分析...")
+    try:
+        # 數據引擎已根據環境自動選擇
+        data_engine = DataEngine(config)
+
+        analyzer = StressIndex()
+        # In test mode, StressIndex is a MockDataEngine, which doesn't have a calculate_stress_index method.
+        # It has a get_data method.
+        vix_data = data_engine.get_data('vix')
+        skew_data = data_engine.get_data('skew')
+
+        # StressIndex 計算邏輯為 (vix.mean() + skew.mean()) / 2
+        vix_mean = vix_data['Close'].mean()
+        skew_mean = skew_data['Value'].mean()
+        index_value = (vix_mean + skew_mean) / 2
+
+        if isinstance(index_value, float):
+            index_value = f"{index_value:.2f}"
+
+        result_message = f"分析完成。指數為: {index_value}"
         status = 'completed'
-    else:
-        result_message = "分析失敗：關鍵數據源無法連接。"
+        logging.info(f"任務 {task_id}: 分析成功。")
+
+    except Exception as e:
+        logging.error(f"任務 {task_id}: 分析過程中發生錯誤。")
+        logging.error(traceback.format_exc())
+        result_message = f"分析失敗: {str(e)}"
         status = 'failed'
 
-    logging.info(f"任務 {task_id}: 分析結束，狀態為 {status}。")
     return status, result_message
 
 def main_loop():
+    logging.info(f"工人已啟動，模式: {PROMETHEUS_ENV}，監聽資料庫: {DB_PATH}")
     init_db()
-    logging.info("實戰工人已啟動，準備接收作戰指令...")
-    while True:
+    while not shutdown_signal:
         task_info = None
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            conn.execute("BEGIN IMMEDIATE")
-            try:
+        try:
+            with sqlite3.connect(DB_PATH, timeout=10) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
                 cursor.execute("SELECT task_id, task_type FROM tasks WHERE status = 'pending' LIMIT 1")
                 task = cursor.fetchone()
                 if task:
                     cursor.execute("UPDATE tasks SET status = 'running' WHERE task_id = ?", (task['task_id'],))
                     conn.commit()
                     task_info = {'id': task['task_id'], 'type': task['task_type']}
-                else:
-                    conn.commit()
-            except Exception as e:
-                conn.rollback()
-                logging.error(f"領取任務時發生資料庫錯誤: {e}")
+        except sqlite3.OperationalError as e:
+            logging.error(f"無法連接或鎖定資料庫: {e}。等待後重試...")
+            time.sleep(5)
+            continue
 
         if task_info:
             task_id, task_type = task_info['id'], task_info['type']
+            logging.info(f"領取到任務: {task_id} ({task_type})")
             final_status, result = 'failed', '未知的任務類型'
+            if task_type == 'stress_index_analysis':
+                final_status, result = execute_stress_index_analysis(task_id)
 
-            if task_type == 'deep_analysis':
-                final_status, result = execute_deep_analysis(task_id)
-            # 未來可在此處添加更多 elif task_type == '...'
-
+            logging.info(f"任務 {task_id} 完成，狀態: {final_status}, 結果: {result}")
             with sqlite3.connect(DB_PATH) as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE tasks SET status = ?, result = ? WHERE task_id = ?",
-                    (final_status, result, task_id)
-                )
+                cursor.execute("UPDATE tasks SET status = ?, result = ? WHERE task_id = ?",
+                               (final_status, result, task_id))
                 conn.commit()
-
         time.sleep(1)
+    logging.info("工人程序已優雅關閉。")
 
 if __name__ == "__main__":
     main_loop()

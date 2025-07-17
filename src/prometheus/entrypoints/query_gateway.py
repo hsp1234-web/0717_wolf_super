@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+import logging
+from fastapi import HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 import uvicorn
-import logging
 import os
 import sqlite3
 import uuid
@@ -11,8 +12,11 @@ import time
 import threading
 import psutil
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from src.prometheus.core.constants import DB_PATH, WEB_DIR
+from src.prometheus.core.logging_config import setup_logging
+
+setup_logging(process_name="API_SERVER")
+
 app = FastAPI()
 
 # --- 全域變數與鎖，用於儲存和安全地讀寫監控數據 ---
@@ -22,13 +26,9 @@ metrics_lock = threading.Lock()
 class TaskRequest(BaseModel):
     task_type: str
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-DB_PATH = os.path.join(PROJECT_ROOT, 'tasks.sqlite')
-WEB_DIR = os.path.join(PROJECT_ROOT, 'prometheus', 'web')
-
 def hardware_monitor():
     """在背景持續監控硬體資源。"""
-    logger.info("[神經中樞] 硬體監控執行緒已啟動。")
+    logging.info("[神經中樞] 硬體監控執行緒已啟動。")
     while True:
         cpu = psutil.cpu_percent(interval=1)
         mem = psutil.virtual_memory().percent
@@ -38,6 +38,7 @@ def hardware_monitor():
         time.sleep(2) # 每 2 秒更新一次數據
 
 def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -56,7 +57,7 @@ async def startup_event():
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
-    return FileResponse(os.path.join(WEB_DIR, 'dashboard.html'))
+    return FileResponse(WEB_DIR / 'dashboard.html')
 
 @app.post("/api/v1/submit_task")
 def submit_task(task_request: TaskRequest):

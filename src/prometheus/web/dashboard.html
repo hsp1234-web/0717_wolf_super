@@ -78,7 +78,58 @@
             async function fetchTaskHistory() { /* ... 保持不變 ... */ }
             function stopTaskPolling() { /* ... 保持不變 ... */ }
             async function checkTaskStatus(taskId) { /* ... 保持不變 ... */ }
-            executeBtn.addEventListener('click', async () => { /* ... 保持不變 ... */ });
+            executeBtn.addEventListener('click', async () => {
+                executeBtn.disabled = true;
+                statusMsgElem.textContent = '指令已下達，等待執行...';
+                if (taskPollingInterval) clearInterval(taskPollingInterval);
+
+                try {
+                    const response = await fetch('/api/v1/submit_task', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ task_type: 'stress_index_analysis' })
+                    });
+                    const data = await response.json();
+
+                    if (data.task_id) {
+                        statusMsgElem.textContent = `任務 ${data.task_id.substring(0, 8)}... 正在執行中。`;
+                        taskPollingInterval = setInterval(() => checkTaskStatus(data.task_id), 1000);
+                    } else {
+                        statusMsgElem.textContent = '任務提交失敗。';
+                        executeBtn.disabled = false;
+                    }
+                } catch (error) {
+                    statusMsgElem.textContent = '錯誤：無法與伺服器通訊。';
+                    executeBtn.disabled = false;
+                }
+            });
+
+            async function checkTaskStatus(taskId) {
+                try {
+                    const response = await fetch(`/api/v1/task_status/${taskId}`);
+                    const data = await response.json();
+
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        stopTaskPolling();
+                        statusMsgElem.textContent = `任務結果: ${data.result}`;
+                        executeBtn.disabled = false;
+                        fetchTaskHistory(); // 更新歷史紀錄
+                    } else {
+                        statusMsgElem.textContent = `任務 ${data.task_id.substring(0, 8)}... 狀態: ${data.status}`;
+                    }
+                } catch (error) {
+                    stopTaskPolling();
+                    statusMsgElem.textContent = '輪詢任務狀態時發生錯誤。';
+                    executeBtn.disabled = false;
+                }
+            }
+
+            function stopTaskPolling() {
+                if (taskPollingInterval) {
+                    clearInterval(taskPollingInterval);
+                    taskPollingInterval = null;
+                }
+            }
 
             // --- 啟動所有輪詢 ---
             fetchTaskHistory();
