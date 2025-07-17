@@ -1,5 +1,5 @@
 import typer
-from prometheus.entrypoints.query_gateway import run_dashboard_service
+from prometheus.entrypoints.query_gateway import start
 from prometheus.core.logging.log_manager import LogManager
 
 app = typer.Typer()
@@ -18,7 +18,7 @@ def cli_dashboard(
 ):
     """啟動網頁儀表板。"""
     logger.info(f"準備在 http://{host}:{port} 啟動儀表板...")
-    run_dashboard_service(None, host, port)
+    start()
 
 data_app = typer.Typer()
 app.add_typer(data_app, name="data")
