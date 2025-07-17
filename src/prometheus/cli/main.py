@@ -1,5 +1,4 @@
 import typer
-from prometheus.entrypoints.ai_analyst_app import ai_analyst_job
 from prometheus.entrypoints.query_gateway import run_dashboard_service
 from prometheus.core.logging.log_manager import LogManager
 
@@ -7,16 +6,6 @@ app = typer.Typer()
 # 由於 LogManager 不再是單例，我們為 CLI 的主進程創建一個常規的 logger
 log_manager = LogManager(log_file="prometheus_cli.log")
 logger = log_manager.get_logger("Conductor")
-
-@app.command(name="analyze")
-def cli_analyze():
-    """
-    啟動 AI 分析師報告生成器。
-    """
-    logger.info("正在啟動 AI 分析師...")
-    ai_analyst_job()
-    logger.info("AI 分析師工作完成。")
-
 
 import subprocess
 import sys
