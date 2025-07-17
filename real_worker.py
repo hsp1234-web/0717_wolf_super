@@ -80,6 +80,8 @@ def main_loop():
     while not shutdown_signal:
         task_info = None
         try:
+            # 增加隨機延遲以避免多個工人同時鎖定資料庫
+            time.sleep(random.uniform(0.1, 0.5))
             with sqlite3.connect(DB_PATH, timeout=10) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
