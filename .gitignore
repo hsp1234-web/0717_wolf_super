@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Databases
+*.db
+*.duckdb
+*.sqlite
+*.sqlite3
+
+# Data & Reports
+*.csv
+*.log
+*.parquet
+*.txt
+*.json
+data/
+data_workspace/
+workspace/
+reports/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+
+# 忽略在測試期間產生的臨時資料庫和日誌檔案
+apps/**/tests/*.duckdb
+apps/**/tests/*.log
+output/
+
+poetry.lock\n# Archive for legacy scripts
+archive/
+\n# Archive for legacy scripts
+archive/

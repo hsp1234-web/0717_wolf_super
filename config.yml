@@ -1,0 +1,50 @@
+# ==============================================================================
+# 專案組態設定檔 (v2.0)
+# 說明：集中管理所有需要靈活調整的參數與 API 金鑰。
+# ==============================================================================
+
+# --- API 金鑰管理 ---
+# 警告：請勿將真實金鑰直接提交到版本控制系統。
+# 建議將此檔案加入 .gitignore，並在部署環境中手動創建或透過 CI/CD 注入。
+api_keys:
+  # 請在此處填入您的 FRED API 金鑰
+  fred: "c85a224a0e0d72a7bccb471c0021eb7b"
+
+  # 其他未來可能用到的金鑰
+  fmp: "YOUR_REAL_FMP_API_KEY_HERE" # <-- 在此處新增您的 FMP 金鑰
+  finmind: "YOUR_REAL_FINMIND_API_TOKEN_HERE" # <-- 在此處新增您的 FinMind Token
+
+# --- 資料庫設定 ---
+database:
+  main_db_path: "data/analytics_warehouse/factors.duckdb"
+  # 新增任務佇列資料庫的路徑設定
+  task_queue_db_path: "output/task_queue.db"
+
+# --- 數據獲取設定 ---
+data_acquisition:
+  # 重試次數
+  retries: 3
+  # 重試間隔 (秒)
+  retry_backoff: 2
+  taifex:
+    base_url: "https://www.taifex.com.tw"
+    user_agents:
+      - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+      - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+
+# ==============================================================================
+# 因子宇宙設定 (v1.0)
+# 說明：定義演化引擎可以使用的所有技術指標、參數範圍與操作。
+# ==============================================================================
+factor_universe:
+  - name: "RSI"
+    params:
+      window: [10, 30]  # 參數：窗口大小，範圍為 10 到 30
+    operators: ["less_than", "greater_than"] # 可用的比較運算子
+    value_range: [20, 80] # 運算子右側值的範圍 (例如 RSI < 30)
+
+  - name: "SMA_cross" # 特殊因子：雙均線交叉
+    params:
+      fast_window: [5, 50]
+      slow_window: [10, 100]
+    operators: ["cross_above", "cross_below"] # 專用運算子
