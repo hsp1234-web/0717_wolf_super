@@ -19,6 +19,11 @@ setup_logging(process_name="API_SERVER")
 
 app = FastAPI()
 
+@app.get("/health", tags=["System"])
+def health_check():
+    """提供一個簡單的健康檢查端點，用於驗證服務是否啟動並可響應。"""
+    return {"status": "ok", "message": "Prometheus API is alive."}
+
 # --- 全域變數與鎖，用於儲存和安全地讀寫監控數據 ---
 system_metrics = {"cpu_percent": 0.0, "memory_percent": 0.0}
 metrics_lock = threading.Lock()
