@@ -7,50 +7,79 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-gray-200 font-sans flex items-center justify-center min-h-screen">
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 w-full max-w-2xl">
-        <h1 class="text-3xl font-bold text-center text-cyan-400 mb-6">普羅米修斯 - 作戰指揮中心</h1>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 w-full max-w-2xl space-y-6">
+        <h1 class="text-3xl font-bold text-center text-cyan-400">普羅米修斯 - 作戰指揮中心</h1>
+
+        <!-- 數據顯示區域 -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
-            <div class="bg-gray-700/50 p-4 rounded-lg">
-                <h2 class="text-lg font-semibold text-gray-400">系統壓力指數</h2>
-                <p id="stress-index" class="text-4xl font-mono font-bold text-amber-400">讀取中...</p>
-            </div>
-            <div class="bg-gray-700/50 p-4 rounded-lg">
-                <h2 class="text-lg font-semibold text-gray-400">現役策略數量</h2>
-                <p id="active-strategies" class="text-4xl font-mono font-bold text-green-400">讀取中...</p>
-            </div>
+            <div class="bg-gray-700/50 p-4 rounded-lg"><h2 class="text-lg font-semibold text-gray-400">系統壓力指數</h2><p id="stress-index" class="text-4xl font-mono font-bold text-amber-400">讀取中...</p></div>
+            <div class="bg-gray-700/50 p-4 rounded-lg"><h2 class="text-lg font-semibold text-gray-400">現役策略數量</h2><p id="active-strategies" class="text-4xl font-mono font-bold text-green-400">讀取中...</p></div>
         </div>
-        <div class="mt-6 flex items-center justify-center">
-            <div id="status-light" class="w-4 h-4 rounded-full bg-yellow-500 animate-pulse"></div>
-            <p id="status-text" class="ml-3 text-gray-400">正在連接至後端...</p>
+
+        <!-- 指令下達區域 -->
+        <div class="border-t border-gray-700 pt-6 text-center">
+            <button id="execute-task-btn" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 ease-in-out disabled:bg-gray-500 disabled:cursor-not-allowed">
+                執行深度分析
+            </button>
+            <div id="task-status-message" class="mt-4 text-sm text-gray-400 h-5">請下達指令</div>
         </div>
     </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // --- 元素選擇器 ---
             const stressIndexElem = document.getElementById('stress-index');
             const activeStrategiesElem = document.getElementById('active-strategies');
-            const statusLightElem = document.getElementById('status-light');
-            const statusTextElem = document.getElementById('status-text');
+            const executeBtn = document.getElementById('execute-task-btn');
+            const statusMsgElem = document.getElementById('task-status-message');
+
+            // --- 數據獲取邏輯 ---
             async function fetchSystemStatus() {
                 try {
                     const response = await fetch('/api/v1/system_status');
-                    if (!response.ok) throw new Error(`HTTP 錯誤！狀態: ${response.status}`);
+                    if (!response.ok) throw new Error('Network response was not ok');
                     const data = await response.json();
                     stressIndexElem.textContent = data.stress_index;
                     activeStrategiesElem.textContent = data.active_strategies;
-                    statusLightElem.classList.remove('bg-yellow-500', 'animate-pulse', 'bg-red-500');
-                    statusLightElem.classList.add('bg-green-500');
-                    statusTextElem.textContent = '已連接，數據同步正常';
                 } catch (error) {
                     console.error('無法獲取系統狀態:', error);
                     stressIndexElem.textContent = 'N/A';
                     activeStrategiesElem.textContent = 'N/A';
-                    statusLightElem.classList.remove('bg-yellow-500', 'animate-pulse', 'bg-green-500');
-                    statusLightElem.classList.add('bg-red-500');
-                    statusTextElem.textContent = '與後端通訊中斷';
                 }
             }
+
+            // --- 指令下達邏輯 ---
+            executeBtn.addEventListener('click', async () => {
+                executeBtn.disabled = true;
+                statusMsgElem.textContent = '指令已發送，等待後端確認...';
+                statusMsgElem.classList.add('text-amber-400');
+
+                try {
+                    const response = await fetch('/api/v1/execute_task', { method: 'POST' });
+                    if (!response.ok) throw new Error('Task execution failed');
+                    const result = await response.json();
+
+                    statusMsgElem.textContent = result.message;
+                    statusMsgElem.classList.remove('text-amber-400');
+                    statusMsgElem.classList.add('text-green-400');
+
+                } catch (error) {
+                    console.error('執行任務時發生錯誤:', error);
+                    statusMsgElem.textContent = '錯誤：與後端通訊失敗';
+                    statusMsgElem.classList.add('text-red-500');
+                } finally {
+                    // 3秒後恢復按鈕，以便再次點擊
+                    setTimeout(() => {
+                        executeBtn.disabled = false;
+                        statusMsgElem.textContent = '請下達指令';
+                        statusMsgElem.classList.remove('text-green-400', 'text-amber-400', 'text-red-500');
+                    }, 3000);
+                }
+            });
+
+            // 啟動數據輪詢
             fetchSystemStatus();
-            setInterval(fetchSystemStatus, 5000);
+            setInterval(fetchSystemStatus, 10000);
         });
     </script>
 </body>
