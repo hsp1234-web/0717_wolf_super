@@ -7,33 +7,52 @@ import logging
 import os
 import sqlite3
 import uuid
+import time
+import threading
+import psutil
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 app = FastAPI()
 
+# --- 全域變數與鎖，用於儲存和安全地讀寫監控數據 ---
+system_metrics = {"cpu_percent": 0.0, "memory_percent": 0.0}
+metrics_lock = threading.Lock()
+
 class TaskRequest(BaseModel):
     task_type: str
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-DB_PATH = os.environ.get("DB_PATH", os.path.join(PROJECT_ROOT, 'tasks.sqlite'))
-WEB_DIR = os.path.join(PROJECT_ROOT, 'src', 'prometheus', 'web')
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+DB_PATH = os.path.join(PROJECT_ROOT, 'tasks.sqlite')
+WEB_DIR = os.path.join(PROJECT_ROOT, 'prometheus', 'web')
+
+def hardware_monitor():
+    """在背景持續監控硬體資源。"""
+    logger.info("[神經中樞] 硬體監控執行緒已啟動。")
+    while True:
+        cpu = psutil.cpu_percent(interval=1)
+        mem = psutil.virtual_memory().percent
+        with metrics_lock:
+            system_metrics["cpu_percent"] = cpu
+            system_metrics["memory_percent"] = mem
+        time.sleep(2) # 每 2 秒更新一次數據
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
-            task_id TEXT PRIMARY KEY,
-            task_type TEXT NOT NULL,
-            status TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            result TEXT
+            task_id TEXT PRIMARY KEY, task_type TEXT NOT NULL, status TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, result TEXT
         )""")
         conn.commit()
 
 @app.on_event("startup")
-async def startup_event(): init_db()
+async def startup_event():
+    init_db()
+    # 啟動背景監控執行緒
+    monitor_thread = threading.Thread(target=hardware_monitor, daemon=True)
+    monitor_thread.start()
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
@@ -47,7 +66,7 @@ def submit_task(task_request: TaskRequest):
         cursor.execute("INSERT INTO tasks (task_id, task_type, status) VALUES (?, ?, ?)",
                        (task_id, task_request.task_type, 'pending'))
         conn.commit()
-    return {"status": "ok", "message": "任務已成功提交", "task_id": task_id}
+    return {"status": "ok", "task_id": task_id}
 
 @app.get("/api/v1/task_status/{task_id}")
 def get_task_status(task_id: str):
@@ -56,21 +75,24 @@ def get_task_status(task_id: str):
         cursor = conn.cursor()
         cursor.execute("SELECT status, result FROM tasks WHERE task_id = ?", (task_id,))
         task = cursor.fetchone()
-    if task:
-        return {"task_id": task_id, "status": task["status"], "result": task["result"]}
+    if task: return {"task_id": task_id, "status": task["status"], "result": task["result"]}
     raise HTTPException(status_code=404, detail="找不到指定的任務")
 
-# --- 新增的歷史任務接口 ---
 @app.get("/api/v1/get_task_history")
 def get_task_history():
-    """獲取最近 10 筆歷史任務記錄。"""
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT task_id, task_type, status, result, created_at FROM tasks ORDER BY created_at DESC LIMIT 10")
+        cursor.execute("SELECT * FROM tasks ORDER BY created_at DESC LIMIT 10")
         tasks = cursor.fetchall()
-    # 將 sqlite3.Row 物件轉換為字典列表以便 JSON 序列化
     return [dict(task) for task in tasks]
+
+# --- 新增的系統指標接口 ---
+@app.get("/api/v1/get_system_metrics")
+def get_system_metrics():
+    """獲取即時的系統資源使用率。"""
+    with metrics_lock:
+        return system_metrics.copy()
 # -------------------------
 
 def start():
