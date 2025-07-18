@@ -1,124 +1,71 @@
-# -*- coding: utf-8 -*-
-from fastapi import FastAPI
-import logging
-from fastapi import HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
-from pydantic import BaseModel
-import uvicorn
 import os
-import sqlite3
-import uuid
-import time
-import threading
-import psutil
+import json
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+from typing import Dict, Any, Optional, List
 
-from src.prometheus.core.constants import DB_PATH, WEB_DIR
-from src.prometheus.core.logging_config import setup_logging
+# 由於 'src.prometheus' 的路徑問題，我們需要調整導入方式
+# 這是一個常見的 Python 路徑問題，當從專案根目錄執行時會發生
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-setup_logging(process_name="API_SERVER")
+from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
+from src.prometheus.models.snapshot_models import Factor
+from src.prometheus.core.analysis.mock_data_engine import MockDataEngine
 
-app = FastAPI()
+# 初始化 FastAPI 應用
+app = FastAPI(
+    title="作戰司令部 API",
+    description="用於接收分析指令並查詢任務結果的輕量級 API 伺服器。",
+    version="1.2.0",
+)
 
-@app.get("/health", tags=["System"])
+# --- 模型定義 (僅為 API 文件所需，與佇列無關) ---
+class TaskRequest(BaseModel):
+    task_type: str = Field(..., description="任務的類型")
+    payload: Optional[Dict[str, Any]] = Field(None, description="任務參數")
+
+class TaskResponse(BaseModel):
+    message: str
+    task_id: str
+
+# --- 初始化核心服務 ---
+# 在實際應用中，DB_PATH 可能來自環境變數或設定檔
+# 為了讓測試和執行更穩定，我們先寫死路徑
+# 注意：這在生產環境中可能需要更改
+if not os.path.exists('data'):
+    os.makedirs('data')
+DB_PATH = os.getenv('DB_PATH', 'data/prometheus.db')
+task_queue = SQLiteQueue(DB_PATH)
+mock_engine = MockDataEngine()
+
+# --- API 端點定義 ---
+
+@app.get("/health", tags=["系統監控"])
 def health_check():
-    """提供一個簡單的健康檢查端點，用於驗證服務是否啟動並可響應。"""
-    return {"status": "ok", "message": "Prometheus API is alive."}
+    """ 提供一個簡單的健康檢查端點。 """
+    return {"status": "作戰司令部 API 正常運行"}
 
-# --- 全域變數與鎖，用於儲存和安全地讀寫監控數據 ---
-system_metrics = {"cpu_percent": 0.0, "memory_percent": 0.0}
-metrics_lock = threading.Lock()
+@app.post("/api/v1/submit_task", response_model=TaskResponse, tags=["任務調度"])
+def submit_task(request: TaskRequest):
+    """ 接收一個新的分析任務，並將其放入佇列。 """
+    try:
+        # 根據 SQLiteQueue 的實現，我們只傳遞 task_type 和 payload
+        task_id = task_queue.put(request.task_type, request.payload)
+        return {"message": "任務已成功提交", "task_id": task_id}
+    except Exception as e:
+        # 增加日誌記錄，以便於除錯
+        import logging
+        logging.error(f"提交任務時發生錯誤: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"提交任務時發生錯誤: {e}")
 
-class TaskRequest(BaseModel):
-    task_type: str
-
-def hardware_monitor():
-    """在背景持續監控硬體資源。"""
-    logging.info("[神經中樞] 硬體監控執行緒已啟動。")
-    while True:
-        cpu = psutil.cpu_percent(interval=1)
-        mem = psutil.virtual_memory().percent
-        with metrics_lock:
-            system_metrics["cpu_percent"] = cpu
-            system_metrics["memory_percent"] = mem
-        time.sleep(2) # 每 2 秒更新一次數據
-
-def init_db():
-    # 改為使用 SQLiteQueue 初始化，確保表結構一致
-    from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
-    from src.prometheus.core.constants import DB_PATH
-    SQLiteQueue(db_path=DB_PATH)._init_db()
-
-@app.on_event("startup")
-async def startup_event():
-    init_db()
-    # 啟動背景監控執行緒
-    monitor_thread = threading.Thread(target=hardware_monitor, daemon=True)
-    monitor_thread.start()
-
-@app.get("/", response_class=HTMLResponse)
-async def serve_dashboard():
-    return FileResponse(WEB_DIR / 'dashboard.html')
-
-# --- 任務調度端點 (已更新) ---
-from pydantic import Field
-from typing import Dict, Any
-
-class TaskRequest(BaseModel):
-    """定義任務請求的數據結構。"""
-    task_type: str = Field(..., description="任務的類型，例如 'simple_moving_average'")
-    payload: Dict[str, Any] = Field(..., description="任務所需的具體參數")
-
-@app.post("/api/v1/submit_task", tags=["任務調度"])
-def submit_task(task: TaskRequest):
-    """
-    接收並提交一個新的分析任務到佇列中。
-    """
-    from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
-    from src.prometheus.core.constants import DB_PATH
-    import json
-    logger = logging.getLogger(__name__)
-
-    # 提供資料庫路徑來實例化佇列
-    task_queue = SQLiteQueue(db_path=DB_PATH)
-    # 將 pydantic 模型轉換為字典，再序列化為 JSON 字串存儲
-    task_data_str = task.model_dump_json()
-
-    # SQLiteQueue 使用 put 方法，而不是 enqueue
-    task_queue.put(task_data_str)
-
-    # 由於 put 不返回 ID，我們需要自己生成一個或從請求中獲取
-    # 為了簡單起見，我們暫時不返回特定 ID，但記錄日誌
-    task_id = "N/A" # 簡單實現，不返回 ID
-    logger.info(f"接收到新任務，類型: {task.task_type}，已入列")
-
-    return {"message": "任務已成功提交", "task_id": task_id}
-
-@app.get("/api/v1/task_status/{task_id}")
-def get_task_status(task_id: str):
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT status, result FROM tasks WHERE task_id = ?", (task_id,))
-        task = cursor.fetchone()
-    if task: return {"task_id": task_id, "status": task["status"], "result": task["result"]}
-    raise HTTPException(status_code=404, detail="找不到指定的任務")
-
-@app.get("/api/v1/get_task_history")
-def get_task_history():
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM tasks ORDER BY created_at DESC LIMIT 10")
-        tasks = cursor.fetchall()
-    return [dict(task) for task in tasks]
-
-# --- 新增的系統指標接口 ---
-@app.get("/api/v1/get_system_metrics")
-def get_system_metrics():
-    """獲取即時的系統資源使用率。"""
-    with metrics_lock:
-        return system_metrics.copy()
-# -------------------------
-
-def start():
-    uvicorn.run("prometheus.entrypoints.query_gateway:app", host="0.0.0.0", port=8000, log_level="info")
+@app.get("/api/v1/market_snapshot", response_model=List[Factor], tags=["市場數據"])
+def get_market_snapshot():
+    """ 提供「市場數據總覽」頁面所需的所有因子數據。 """
+    try:
+        factors = mock_engine.get_market_factors()
+        return factors
+    except Exception as e:
+        import logging
+        logging.error(f"獲取市場數據時發生錯誤: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"獲取市場數據時發生錯誤: {str(e)}")

@@ -1,26 +1,19 @@
-# -*- coding: utf-8 -*-
-import pandas as pd
-import logging
+from typing import List
+from ...models.snapshot_models import Factor
 
 class MockDataEngine:
     """
-    一個用於快速測試的模擬數據引擎。
-    它模仿真實 DataEngine 的行為，但返回硬編碼的數據，以消除網路延遲。
+    一個模擬的數據引擎，用於在開發階段提供穩定的因子數據。
     """
-    def __init__(self, config=None):
-        logging.info("[作戰演習模式] 模擬數據引擎已初始化。")
-        # 準備一份小規模、結構正確的假數據
-        self.mock_data = {
-            'vix': pd.DataFrame({'Close': [20.5, 21.0, 22.5]}, index=pd.to_datetime(['2025-07-15', '2025-07-16', '2025-07-17'])),
-            'skew': pd.DataFrame({'Value': [120.0, 125.0, 130.0]}, index=pd.to_datetime(['2025-07-15', '2025-07-16', '2025-07-17']))
-        }
-
-    def get_data(self, data_name: str, **kwargs) -> pd.DataFrame:
+    def get_market_factors(self) -> List[Factor]:
         """
-        獲取模擬數據。
+        回傳與前端模擬數據完全一致的因子列表。
         """
-        logging.info(f"[作戰演習模式] 正在提供模擬數據: {data_name}")
-        if data_name in self.mock_data:
-            return self.mock_data[data_name]
-        # 如果請求的數據不存在，返回一個空的 DataFrame 以防止崩潰
-        return pd.DataFrame()
+        mock_data = [
+            { "category": '市場情緒', "name": 'VIX 恐慌指數', "value": '13.5', "change": -5.2, "trend": [14.2, 14.1, 13.9, 13.6, 13.5, 13.8, 13.6, 13.5] },
+            { "category": '市場情緒', "name": 'Put/Call Ratio', "value": '0.85', "change": 10.1, "trend": [0.75, 0.78, 0.80, 0.82, 0.85, 0.83, 0.84, 0.85] },
+            { "category": '宏觀經濟', "name": '美國十年債利率', "value": '4.21%', "change": -0.9, "trend": [4.28, 4.26, 4.25, 4.22, 4.21, 4.23, 4.22, 4.21] },
+            { "category": '籌碼面 (台股)', "name": '外資期貨未平倉', "value": '-8,500', "change": 25.1, "trend": [-4500, -5000, -6800, -7200, -8500, -7500, -8000, -8500] },
+            { "category": '技術分析', "name": '市場寬度 (>50MA)', "value": '65%', "change": 8.0, "trend": [55, 58, 60, 62, 65, 63, 64, 65] },
+        ]
+        return [Factor(**item) for item in mock_data]
