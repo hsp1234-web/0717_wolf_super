@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 
 class BondFactorEngine:
     def calculate(self, df: pd.DataFrame) -> pd.DataFrame:

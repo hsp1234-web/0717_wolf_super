@@ -5,7 +5,7 @@
 import os
 from typing import List
 from deap import tools
-from prometheus.models.strategy_models import PerformanceReport, Strategy
+from prometheus.models.strategy_models import PerformanceReport
 
 class StrategyReporter:
     """

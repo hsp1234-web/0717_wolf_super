@@ -1,7 +1,5 @@
 import logging
-from datetime import datetime, timedelta
 
-import numpy as np
 from prometheus.core.logging.log_manager import LogManager
 import pandas as pd
 import plotly.graph_objects as go

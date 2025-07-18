@@ -10,7 +10,8 @@ SERVICE_URL = "http://127.0.0.1:8000/"
 DB_FILE = os.path.abspath("tasks.sqlite")
 VERIFICATION_TIMEOUT = 20000
 
-if os.path.exists(DB_FILE): os.remove(DB_FILE)
+if os.path.exists(DB_FILE):
+    os.remove(DB_FILE)
 
 env = os.environ.copy()
 env["DB_PATH"] = DB_FILE

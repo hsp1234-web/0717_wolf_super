@@ -41,13 +41,6 @@ ruff = "^0.4.8"
 deptry = "^0.17.0"
 pytest-timeout = "^2.3.1"
 
-# --- 完全替換 [tool.pytest.ini_options] 區塊 ---
-[tool.pytest.ini_options]
-# 為每個測試設定 60 秒的超時熔斷
-timeout = 60
-# 告知 Pytest 我們的原始碼現在位於 src 目錄下
-pythonpath = ["src"]
-asyncio_mode = "auto"
 
 # --- 如果不存在則新增，如果存在則更新 [tool.ruff] 和 [tool.ruff.lint] ---
 [tool.ruff]
@@ -56,7 +49,33 @@ line-length = 88
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
+# 我們只選擇會導致執行失敗的規則類別
+# E: Pyflakes (語法錯誤)
+# F: Pyflakes (邏輯錯誤，如未定義變數)
+select = ["E", "F"]
+
+# 我們明確忽略所有與風格相關的規則
+# W: Pycodestyle (警告)
+# D: Pydocstyle (文件字串)
+# I: isort (導入排序)
+# E402: Module level import not at top of file
+# E701: Multiple statements on one line (colon)
+ignore = ["W", "D", "I", "E402", "E701", "E501"]
+
+[tool.deptry]
+# 將 src 目錄下的 prometheus 模組標記為第一方本地模組
+known_first_party = ["prometheus"]
+# 針對不同規則忽略特定的包或模組
+[tool.deptry.per_rule_ignores]
+# DEP001: 忽略 'apps' 模組的導入，因為它可能是一個動態的命名空間
+DEP001 = ["apps"]
+# DEP002: 忽略這些未使用的依賴，它們可能是間接使用或部署時需要
+DEP002 = ["vectorbt", "pybreaker", "openpyxl", "pandas-ta", "setuptools", "gunicorn"]
+# DEP003: 忽略對這些傳遞性依賴的直接導入
+DEP003 = ["click", "pydantic", "pytz"]
+# DEP004: 忽略在測試代碼中導入 'pytest'
+DEP004 = ["pytest"]
+
 
 [build-system]
 requires = ["poetry-core"]

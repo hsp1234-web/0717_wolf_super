@@ -10,7 +10,8 @@ SERVICE_URL = "http://127.0.0.1:8000/"
 DB_FILE = "tasks.sqlite"
 VERIFICATION_TIMEOUT = 15000
 
-if os.path.exists(DB_FILE): os.remove(DB_FILE)
+if os.path.exists(DB_FILE):
+    os.remove(DB_FILE)
 
 print("戰報：正在啟動所有後台服務...")
 server_process = subprocess.Popen(["poetry", "run", "python", "run.py", "dashboard"])

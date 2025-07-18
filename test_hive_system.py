@@ -63,7 +63,7 @@ try:
         sys.exit(0)
 
 except Exception as e:
-    print(f"\n【作戰失敗】：自動化驗證過程中發生嚴重錯誤。")
+    print("\n【作戰失敗】：自動化驗證過程中發生嚴重錯誤。")
     print(f"錯誤詳情: {e}")
     sys.exit(1)
 

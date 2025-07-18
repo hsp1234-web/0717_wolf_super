@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 import subprocess
 import atexit
 import time
@@ -93,7 +92,12 @@ def main():
         ]
         manager.launch(api_server_cmd, "API 伺服器", health_check_func=check_api_server_health)
         # 步驟 2: 啟動工人蜂群 (無需健康檢查，因為它們依賴於 API)
-        # ...
+        worker_cmd = ["poetry", "run", "python", "real_worker.py"]
+        manager.launch(worker_cmd, "作戰工人")
+        print("\n🎉 所有服務已成功發射。系統進入穩定運行狀態。")
+        # 保持主腳本運行，直到被手動中斷
+        while True:
+            time.sleep(60)
     except (RuntimeError, KeyboardInterrupt) as e:
         print(f"\n捕獲到錯誤或中斷信號: {e}")
         # atexit 會自動處理關閉

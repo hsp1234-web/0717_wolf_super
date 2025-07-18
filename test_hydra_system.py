@@ -10,7 +10,8 @@ from src.prometheus.core.constants import DB_PATH
 SERVICE_URL = "http://127.0.0.1:8000/"
 VERIFICATION_TIMEOUT = 15000
 
-if os.path.exists(DB_PATH): os.remove(DB_PATH)
+if os.path.exists(DB_PATH):
+    os.remove(DB_PATH)
 
 test_env = os.environ.copy()
 test_env['PROMETHEUS_ENV'] = 'test'

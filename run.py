@@ -15,7 +15,7 @@ def cli():
 @cli.command()
 def start_services():
     """使用 Gunicorn 啟動 API 伺服器和工人蜂群"""
-    print(f"[*] 正在啟動 API 伺服器 (由 Gunicorn 管理)...")
+    print("[*] 正在啟動 API 伺服器 (由 Gunicorn 管理)...")
     # 使用 gunicorn 啟動 FastAPI 應用
     api_server_cmd = [
         "poetry", "run", "gunicorn",
@@ -31,7 +31,7 @@ def start_services():
         worker_cmd = ["poetry", "run", "python", "real_worker.py"]
         subprocess.Popen(worker_cmd, env=os.environ.copy())
 
-    print(f"\n[+] 所有服務已啟動。API 伺服器運行在 http://0.0.0.0:8000")
+    print("\n[+] 所有服務已啟動。API 伺服器運行在 http://0.0.0.0:8000")
     print(f"[+] {WORKER_COUNT} 個工人正在背景監聽任務。")
     # 讓主腳本保持運行以監控
     try:

@@ -1,7 +1,6 @@
 # src/prometheus/pipelines/p4_stock_factor_generation.py
 
 import logging
-import pandas as pd
 from typing import List
 
 from src.prometheus.core.config import config

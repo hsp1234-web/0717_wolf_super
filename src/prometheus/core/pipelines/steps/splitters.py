@@ -2,7 +2,7 @@
 
 import pandas as pd
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 from src.prometheus.core.pipelines.base_step import BaseStep
 

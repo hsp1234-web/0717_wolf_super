@@ -1,7 +1,6 @@
 import unittest
 import logging
 import os
-import re
 from pathlib import Path
 import time
 
@@ -45,8 +44,8 @@ class TestLogManager(unittest.TestCase):
 
     def test_singleton_instance(self):
         """測試 LogManager 是否能正確實現單例模式"""
-        instance1 = LogManager()
-        instance2 = LogManager()
+        LogManager()
+        LogManager()
         # This test is no longer valid as LogManager is not a singleton anymore
         # self.assertIs(instance1, instance2, "get_instance() 應該總是返回同一個 LogManager 實例")
         pass

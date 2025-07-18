@@ -3,7 +3,7 @@ import random
 import uuid
 from pathlib import Path
 
-from deap import creator, tools
+from deap import tools
 
 from prometheus.core.queue.sqlite_queue import SQLiteQueue
 from prometheus.services.checkpoint_manager import CheckpointManager

@@ -2,7 +2,6 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-import os
 
 class LogManager:
     """

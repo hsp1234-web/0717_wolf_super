@@ -91,7 +91,7 @@ class FinMindClient(BaseAPIClient):
                     if data_list:
                         return pd.DataFrame(data_list)
                     else:
-                        logger.info(f"FinMind API 未返回任何數據。")
+                        logger.info("FinMind API 未返回任何數據。")
                         return pd.DataFrame()
                 else:
                     logger.error(f"未知的 FinMind API 回應 Content-Type: {content_type}")

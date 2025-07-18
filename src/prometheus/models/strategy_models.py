@@ -2,7 +2,7 @@
 """
 本模組定義了策略回測所需的核心數據契約。
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Dict
 
 @dataclass

@@ -40,7 +40,7 @@ try:
         # ( (20.5+21.0+22.5)/3 + (120.0+125.0+130.0)/3 ) / 2 = (21.333 + 125) / 2 = 73.166
         expected_result = "任務結果: 分析完成。指數為: 73.17"
         expect(status_message).to_have_text(expected_result, timeout=VERIFICATION_TIMEOUT)
-        print(f"戰報：驗證通過 - 成功接收到預期的模擬計算結果！")
+        print("戰報：驗證通過 - 成功接收到預期的模擬計算結果！")
 
         browser.close()
         print("\n【作戰成功】：核心智能的快速整合流程已跑通！開發效率已大幅提升！")

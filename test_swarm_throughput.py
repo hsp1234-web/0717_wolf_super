@@ -3,7 +3,7 @@ import subprocess
 import time
 import sys
 import os
-from playwright.sync_api import sync_playwright, expect
+from playwright.sync_api import sync_playwright
 
 from src.prometheus.core.constants import DB_PATH
 

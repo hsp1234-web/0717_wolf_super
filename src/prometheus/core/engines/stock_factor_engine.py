@@ -2,7 +2,7 @@
 
 import pandas as pd
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 from src.prometheus.core.analyzers.base_analyzer import BaseAnalyzer
 from src.prometheus.core.clients.client_factory import ClientFactory

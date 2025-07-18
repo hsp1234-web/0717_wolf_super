@@ -1,4 +1,3 @@
-import unittest
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -32,7 +31,6 @@ def test_data_engine_logic(mock_get_client, mock_clients):
     【實驗室測試】
     驗證 DataEngine 的核心計算邏輯。
     """
-    import asyncio
     from unittest.mock import AsyncMock
     mock_yf, mock_fred, mock_taifex = mock_clients
     mock_get_client.side_effect = [mock_yf, mock_fred, mock_taifex]
@@ -64,7 +62,6 @@ def test_data_engine_logic(mock_get_client, mock_clients):
 
 def test_calculate_approx_credit_spread_with_mock_data():
     """測試 _calculate_approx_credit_spread 方法的邏輯。"""
-    import asyncio
     from unittest.mock import AsyncMock
     engine = DataEngine(db_connection=MagicMock())
 
@@ -81,7 +78,6 @@ def test_calculate_approx_credit_spread_with_mock_data():
 @patch("src.prometheus.core.clients.client_factory.ClientFactory.get_client")
 def test_calculate_proxy_move_with_mock_data(mock_get_client, mock_clients):
     """測試 _calculate_proxy_move 方法的邏輯。"""
-    import asyncio
     from unittest.mock import AsyncMock
     mock_yf, mock_fred, mock_taifex = mock_clients
     mock_get_client.side_effect = [mock_yf, mock_fred, mock_taifex]
@@ -99,7 +95,6 @@ def test_calculate_proxy_move_with_mock_data(mock_get_client, mock_clients):
 
 def test_calculate_gold_copper_ratio_with_mock_data():
     """測試 _calculate_gold_copper_ratio 方法的邏輯。"""
-    import asyncio
     from unittest.mock import AsyncMock
     engine = DataEngine(db_connection=MagicMock())
 

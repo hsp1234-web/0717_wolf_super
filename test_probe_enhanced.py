@@ -3,7 +3,6 @@ import subprocess
 import time
 import requests
 import sys
-import os
 
 # --- 作戰參數 ---
 SERVICE_URL = "http://127.0.0.1:8000/"

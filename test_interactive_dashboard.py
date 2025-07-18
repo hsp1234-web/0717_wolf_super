@@ -2,7 +2,7 @@
 import subprocess
 import time
 import sys
-from playwright.sync_api import sync_playwright, Page, expect
+from playwright.sync_api import sync_playwright, expect
 
 SERVICE_URL = "http://127.0.0.1:8000/"
 STARTUP_WAIT_TIME = 5
@@ -48,7 +48,7 @@ try:
         sys.exit(0)
 
 except Exception as e:
-    print(f"\n【作戰失敗】：自動化驗證過程中發生嚴重錯誤。")
+    print("\n【作戰失敗】：自動化驗證過程中發生嚴重錯誤。")
     print(f"錯誤詳情: {e}")
     sys.exit(1)
 
