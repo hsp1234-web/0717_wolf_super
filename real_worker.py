@@ -2,53 +2,56 @@ import time
 import os
 import traceback
 import random
-import sys
-
-# 假設此 worker 檔案在專案根目錄下
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
-
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
-# from src.prometheus.core.logging.log_manager import LogManager # 暫不使用
+from src.prometheus.core.logging.log_manager import LogManager
 
-def process_initial_analysis(payload):
-    """
-    模擬 AI 進行初步分析。
-    """
-    time.sleep(1) # 模擬 AI 思考時間
-    raw_content = payload.get('raw_content', '')
-    selected_masters = payload.get('selected_masters', [])
-    analysis_summary = f"已分析文本，長度為 {len(raw_content)} 字元。"
-    if selected_masters:
-        analysis_summary += f" 已融合 {len(selected_masters)} 位大師的觀點: {', '.join(selected_masters)}。"
-    return { "summary": analysis_summary, "strategy_suggestion": "建議採取「VIX 波動率擴大」相關策略。" }
+# --- 裝備性能計時器 (裝飾器) ---
+def timeit(queue, task_id, step_name):
+    """一個裝飾器，用於計時函數執行時間並記錄到資料庫。"""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            end_time = time.time()
+            duration = end_time - start_time
+            # 使用 queue 的日誌方法記錄性能
+            queue.log_performance(task_id, step_name, duration)
+            print(f"性能日誌: {task_id} - {step_name} - {duration:.4f} 秒")
+            return result
+        return wrapper
+    return decorator
 
-def process_backtest(payload):
-    """
-    模擬執行一個策略回測。
-    在真實世界中，這裡會呼叫一個複雜的回測引擎。
-    """
-    time.sleep(3) # 模擬回測運算時間
-    strategy_name = payload.get('strategy_name', '未命名策略')
+def process_initial_analysis(queue, task_id, payload):
+    """模擬 AI 進行初步分析，並計時。"""
+    @timeit(queue, task_id, "ai_analysis_processing")
+    def timed_process():
+        time.sleep(1) # 模擬 AI 思考
+        return { "summary": "分析完成", "strategy_suggestion": "..." }
+    return timed_process()
 
-    # 生成模擬的績效數據
-    equity_curve = [100]
-    for _ in range(100):
-        equity_curve.append(equity_curve[-1] * (1 + random.uniform(-0.02, 0.025)))
-
-    return {
-        "strategy_name": strategy_name,
-        "annualized_return": round(random.uniform(5.0, 25.0), 2),
-        "max_drawdown": round(random.uniform(-8.0, -20.0), 2),
-        "sharpe_ratio": round(random.uniform(0.8, 2.5), 2),
-        "win_rate": round(random.uniform(0.45, 0.65), 2),
-        "equity_curve": equity_curve
-    }
+def process_backtest(queue, task_id, payload):
+    """模擬執行策略回測，並計時。"""
+    @timeit(queue, task_id, "backtest_processing")
+    def timed_process():
+        # 模擬一個更真實的回測負載
+        time.sleep(random.uniform(1.5, 2.5)) # 模擬回測運算
+        return {
+            "annualized_return": round(random.uniform(5.0, 15.0), 2),
+            "max_drawdown": round(random.uniform(-10.0, -25.0), 2),
+            "sharpe_ratio": round(random.uniform(0.7, 1.8), 2),
+            "win_rate": round(random.uniform(0.50, 0.60), 2),
+            "equity_curve": [100, 101, 102] # 簡化曲線
+        }
+    return timed_process()
 
 def main():
     db_path = os.getenv('DB_PATH', 'data/prometheus.db')
     queue = SQLiteQueue(db_path)
+    # LogManager 暫時不用，但保留接口
+    # log_manager = LogManager(db_path)
     worker_id = f"worker-{os.getpid()}"
-    print(f"堅韌工人 {worker_id} 已啟動...")
+    # logger = log_manager.get_logger(worker_id)
+    print(f"堅韌工人 {worker_id} 已啟動，連接到 {db_path}")
 
     task_processors = {
         'initial_analysis': process_initial_analysis,
@@ -56,32 +59,33 @@ def main():
     }
 
     while True:
-        try:
-            task = queue.get()
-            if task:
-                task_id, task_type, payload = task
-                print(f"接收到任務 {task_id} (類型: {task_type})")
-                try:
-                    processor = task_processors.get(task_type)
-                    if processor:
-                        result = processor(payload)
-                    else:
-                        print(f"未知的任務類型: {task_type}")
-                        result = {"error": f"未知的任務類型: {task_type}"}
-
-                    print(f"任務 {task_id} 執行成功。")
+        task = queue.get()
+        if task:
+            task_id, task_type, payload = task
+            print(f"工人 {worker_id} 接收到任務 {task_id} (類型: {task_type})")
+            try:
+                processor = task_processors.get(task_type)
+                if processor:
+                    # 將 queue 和 task_id 傳遞給處理函數
+                    result = processor(queue, task_id, payload)
                     queue.update_task(task_id, 'completed', result)
-                except Exception as e:
-                    error_message = f"任務 {task_id} 執行失敗: {e}"
-                    print(error_message)
-                    print(traceback.format_exc())
-                    queue.update_task(task_id, 'failed', {'error': error_message})
-            else:
-                time.sleep(1)
-        except Exception as e:
-            print(f"工人主循環發生嚴重錯誤: {e}")
-            print(traceback.format_exc())
-            time.sleep(5)
+                    print(f"工人 {worker_id} 任務 {task_id} 執行成功。")
+                else:
+                    error_msg = f"未知的任務類型: {task_type}"
+                    print(error_msg)
+                    queue.update_task(task_id, 'failed', {'error': error_msg})
+            except Exception as e:
+                error_message = f"任務 {task_id} 執行期間發生錯誤: {e}"
+                print(error_message)
+                print(traceback.format_exc())
+                queue.update_task(task_id, 'failed', {'error': error_message})
+        else:
+            # 縮短休眠以提高響應速度，並加入微小的隨機性以避免活鎖
+            time.sleep(random.uniform(0.05, 0.15))
 
 if __name__ == "__main__":
+    # 確保在多進程環境下能找到 src 模組
+    # 這在從根目錄執行 `python real_worker.py` 時是必需的
+    import sys
+    sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
     main()

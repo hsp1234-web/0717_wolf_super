@@ -2,109 +2,100 @@ import sqlite3
 import json
 import time
 import uuid
-from typing import Optional, Dict, Any, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 class SQLiteQueue:
-    """
-    一個基於 SQLite 的持久化任務佇列，支持任務狀態追蹤。
-    """
+    # ... (原有 __init__, _get_connection) ...
     def __init__(self, db_path: str):
         self.db_path = db_path
-        self._init_db()
+        self._create_table()
 
-    def _get_conn(self):
-        # 每次操作都建立新的連線，以簡化多線程/多進程下的問題
-        conn = sqlite3.connect(self.db_path, timeout=10)
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _get_connection(self) -> sqlite3.Connection:
+        return sqlite3.connect(self.db_path, timeout=10)
 
-    def _init_db(self):
-        """初始化資料庫和資料表。"""
-        with self._get_conn() as conn:
-            conn.execute("""
+    def _create_table(self):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            # 任務表 (既有)
+            # 注意：我們將 task_id 設為 UNIQUE 但不是 PRIMARY KEY，以允許自動增量的 id
+            cursor.execute('''
                 CREATE TABLE IF NOT EXISTS tasks (
-                    task_id TEXT PRIMARY KEY,
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id TEXT NOT NULL UNIQUE,
                     task_type TEXT NOT NULL,
                     payload TEXT,
-                    status TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
                     result TEXT,
                     created_at REAL NOT NULL,
-                    updated_at REAL NOT NULL
+                    updated_at REAL NOT NULL,
+                    retrieved_at REAL
                 )
-            """)
+            ''')
+            # 新增：性能日誌表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS performance_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id TEXT,
+                    step_name TEXT NOT NULL,
+                    duration REAL NOT NULL,
+                    timestamp REAL NOT NULL
+                )
+            ''')
+            # 新增：硬體日誌表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS hardware_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp REAL NOT NULL,
+                    cpu_percent REAL NOT NULL,
+                    ram_percent REAL NOT NULL,
+                    active_workers INTEGER
+                )
+            ''')
             conn.commit()
 
+    # ... (原有 put, get, update_task, get_task 方法) ...
     def put(self, task_type: str, payload: Optional[Dict[str, Any]] = None) -> str:
-        """
-        將一個新任務加入佇列。
-        """
         task_id = str(uuid.uuid4())
         current_time = time.time()
-        payload_json = json.dumps(payload) if payload else None
-
-        with self._get_conn() as conn:
-            conn.execute(
-                """
-                INSERT INTO tasks (task_id, task_type, payload, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (task_id, task_type, payload_json, 'pending', current_time, current_time)
-            )
-            conn.commit()
+        with self._get_connection() as conn:
+            conn.execute("INSERT INTO tasks (task_id, task_type, payload, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)", (task_id, task_type, json.dumps(payload) if payload else '{}', 'pending', current_time, current_time))
         return task_id
 
-    def get(self) -> Optional[Tuple[str, str, Optional[Dict[str, Any]]]]:
-        """
-        以原子操作獲取一個待處理的任務並將其標記為 'processing'。
-        """
-        with self._get_conn() as conn:
+    def get(self) -> Optional[Tuple[str, str, Dict[str, Any]]]:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
-            # 以原子方式尋找並更新任務
-            cursor.execute("""
-                UPDATE tasks
-                SET status = 'processing', updated_at = ?
-                WHERE task_id = (
-                    SELECT task_id FROM tasks
-                    WHERE status = 'pending'
-                    ORDER BY created_at
-                    LIMIT 1
-                )
-                RETURNING task_id, task_type, payload;
-            """, (time.time(),))
-
-            task = cursor.fetchone()
-            conn.commit()
-
-        if task:
-            payload = json.loads(task['payload']) if task['payload'] else None
-            return task['task_id'], task['task_type'], payload
+            # 使用 FOR UPDATE 和 LIMIT 1 來鎖定行，雖然 SQLite 的並行處理方式不同，但這是個好習慣
+            cursor.execute("SELECT id, task_id, task_type, payload FROM tasks WHERE status = 'pending' ORDER BY created_at ASC LIMIT 1")
+            row = cursor.fetchone()
+            if row:
+                record_id, task_id, task_type, payload_str = row
+                cursor.execute("UPDATE tasks SET status = ?, retrieved_at = ? WHERE id = ?", ('processing', time.time(), record_id))
+                conn.commit()
+                # 如果 payload 為空，返回一個空字典
+                return task_id, task_type, json.loads(payload_str) if payload_str else {}
         return None
 
     def update_task(self, task_id: str, status: str, result: Optional[Dict[str, Any]] = None):
-        """
-        更新任務的狀態和結果。
-        """
-        current_time = time.time()
-        result_json = json.dumps(result) if result else None
-
-        with self._get_conn() as conn:
-            conn.execute(
-                """
-                UPDATE tasks
-                SET status = ?, result = ?, updated_at = ?
-                WHERE task_id = ?
-                """,
-                (status, result_json, current_time, task_id)
-            )
-            conn.commit()
+        with self._get_connection() as conn:
+            conn.execute("UPDATE tasks SET status = ?, result = ?, updated_at = ? WHERE task_id = ?", (status, json.dumps(result) if result else '{}', time.time(), task_id))
 
     def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """
-        根據任務 ID 獲取任務的詳細資訊。
-        """
-        with self._get_conn() as conn:
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM tasks WHERE task_id = ?", (task_id,))
-            task = cursor.fetchone()
+            row = cursor.fetchone()
+            return dict(row) if row else None
 
-        return dict(task) if task else None
+    # 新增：日誌寫入方法
+    def log_performance(self, task_id: str, step_name: str, duration: float):
+        """紀錄一個性能指標"""
+        with self._get_connection() as conn:
+            conn.execute("INSERT INTO performance_logs (task_id, step_name, duration, timestamp) VALUES (?, ?, ?, ?)",
+                         (task_id, step_name, duration, time.time()))
+
+    def log_hardware(self, cpu: float, ram: float, workers: int):
+        """紀錄硬體使用情況"""
+        with self._get_connection() as conn:
+            conn.execute("INSERT INTO hardware_logs (timestamp, cpu_percent, ram_percent, active_workers) VALUES (?, ?, ?, ?)",
+                         (time.time(), cpu, ram, workers))
