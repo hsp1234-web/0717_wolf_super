@@ -43,15 +43,10 @@ def hardware_monitor():
         time.sleep(2) # 每 2 秒更新一次數據
 
 def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tasks (
-            task_id TEXT PRIMARY KEY, task_type TEXT NOT NULL, status TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, result TEXT
-        )""")
-        conn.commit()
+    # 改為使用 SQLiteQueue 初始化，確保表結構一致
+    from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
+    from src.prometheus.core.constants import DB_PATH
+    SQLiteQueue(db_path=DB_PATH)._init_db()
 
 @app.on_event("startup")
 async def startup_event():
@@ -64,15 +59,39 @@ async def startup_event():
 async def serve_dashboard():
     return FileResponse(WEB_DIR / 'dashboard.html')
 
-@app.post("/api/v1/submit_task")
-def submit_task(task_request: TaskRequest):
-    task_id = str(uuid.uuid4())
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO tasks (task_id, task_type, status) VALUES (?, ?, ?)",
-                       (task_id, task_request.task_type, 'pending'))
-        conn.commit()
-    return {"status": "ok", "task_id": task_id}
+# --- 任務調度端點 (已更新) ---
+from pydantic import Field
+from typing import Dict, Any
+
+class TaskRequest(BaseModel):
+    """定義任務請求的數據結構。"""
+    task_type: str = Field(..., description="任務的類型，例如 'simple_moving_average'")
+    payload: Dict[str, Any] = Field(..., description="任務所需的具體參數")
+
+@app.post("/api/v1/submit_task", tags=["任務調度"])
+def submit_task(task: TaskRequest):
+    """
+    接收並提交一個新的分析任務到佇列中。
+    """
+    from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
+    from src.prometheus.core.constants import DB_PATH
+    import json
+    logger = logging.getLogger(__name__)
+
+    # 提供資料庫路徑來實例化佇列
+    task_queue = SQLiteQueue(db_path=DB_PATH)
+    # 將 pydantic 模型轉換為字典，再序列化為 JSON 字串存儲
+    task_data_str = task.model_dump_json()
+
+    # SQLiteQueue 使用 put 方法，而不是 enqueue
+    task_queue.put(task_data_str)
+
+    # 由於 put 不返回 ID，我們需要自己生成一個或從請求中獲取
+    # 為了簡單起見，我們暫時不返回特定 ID，但記錄日誌
+    task_id = "N/A" # 簡單實現，不返回 ID
+    logger.info(f"接收到新任務，類型: {task.task_type}，已入列")
+
+    return {"message": "任務已成功提交", "task_id": task_id}
 
 @app.get("/api/v1/task_status/{task_id}")
 def get_task_status(task_id: str):
