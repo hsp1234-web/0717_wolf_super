@@ -37,3 +37,21 @@ class AIAnalysisRequest(BaseModel):
     """
     raw_content: str = Field(..., description="當週的原始文本")
     selected_masters: List[str] = Field(..., description="用戶選擇融合的大師觀點名稱列表")
+
+# --- 新增回測相關模型 ---
+class BacktestRequest(BaseModel):
+    """
+    定義提交策略回測的請求數據結構。
+    """
+    strategy_code: str = Field(..., description="包含完整策略邏輯的 Python 程式碼字串")
+    strategy_name: str = Field("未命名策略", description="策略的名稱")
+
+class BacktestResult(BaseModel):
+    """
+    定義回測績效報告的數據結構。
+    """
+    annualized_return: float = Field(..., description="年化報酬率")
+    max_drawdown: float = Field(..., description="最大回撤")
+    sharpe_ratio: float = Field(..., description="夏普比率")
+    win_rate: float = Field(..., description="勝率")
+    equity_curve: List[float] = Field(..., description="用於繪製權益曲線的數據點")
