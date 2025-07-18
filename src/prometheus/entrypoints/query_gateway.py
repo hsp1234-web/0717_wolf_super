@@ -12,8 +12,16 @@ from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
 # 導入新的核心服務
 from src.prometheus.core.services import PrometheusService
 from src.prometheus.models.snapshot_models import Factor
+from fastapi.staticfiles import StaticFiles
+import os
 
 app = FastAPI(title="作戰司令部 API", version="2.0.0 (單一核心)")
+
+# 取得 web 目錄的絕對路徑
+web_dir = os.path.join(os.path.dirname(__file__), '..', 'web')
+
+# 掛載靜態文件目錄
+app.mount("/static", StaticFiles(directory=web_dir), name="static")
 
 
 # --- 模型定義 ---
