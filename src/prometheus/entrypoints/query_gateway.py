@@ -10,14 +10,15 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
-from src.prometheus.models.snapshot_models import Factor
+# 擴充導入
+from src.prometheus.models.snapshot_models import Factor, ShanJiaLangInitialData
 from src.prometheus.core.analysis.mock_data_engine import MockDataEngine
 
 # 初始化 FastAPI 應用
 app = FastAPI(
     title="作戰司令部 API",
     description="用於接收分析指令並查詢任務結果的輕量級 API 伺服器。",
-    version="1.2.0",
+    version="1.3.0",
 )
 
 # --- 模型定義 (僅為 API 文件所需，與佇列無關) ---
@@ -30,9 +31,6 @@ class TaskResponse(BaseModel):
     task_id: str
 
 # --- 初始化核心服務 ---
-# 在實際應用中，DB_PATH 可能來自環境變數或設定檔
-# 為了讓測試和執行更穩定，我們先寫死路徑
-# 注意：這在生產環境中可能需要更改
 if not os.path.exists('data'):
     os.makedirs('data')
 DB_PATH = os.getenv('DB_PATH', 'data/prometheus.db')
@@ -50,11 +48,9 @@ def health_check():
 def submit_task(request: TaskRequest):
     """ 接收一個新的分析任務，並將其放入佇列。 """
     try:
-        # 根據 SQLiteQueue 的實現，我們只傳遞 task_type 和 payload
         task_id = task_queue.put(request.task_type, request.payload)
         return {"message": "任務已成功提交", "task_id": task_id}
     except Exception as e:
-        # 增加日誌記錄，以便於除錯
         import logging
         logging.error(f"提交任務時發生錯誤: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"提交任務時發生錯誤: {e}")
@@ -69,3 +65,17 @@ def get_market_snapshot():
         import logging
         logging.error(f"獲取市場數據時發生錯誤: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"獲取市場數據時發生錯誤: {str(e)}")
+
+# 新增的 API 端點
+@app.get("/api/v1/shan_jia_lang/initial_data", response_model=ShanJiaLangInitialData, tags=["情報融合"])
+def get_shan_jia_lang_initial_data():
+    """
+    提供「週報深度覆盤」頁面首次載入時所需的全部初始化數據。
+    """
+    try:
+        initial_data = mock_engine.get_shan_jia_lang_initial_data()
+        return initial_data
+    except Exception as e:
+        import logging
+        logging.error(f"獲取週報初始數據時發生錯誤: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"獲取週報初始數據時發生錯誤: {str(e)}")

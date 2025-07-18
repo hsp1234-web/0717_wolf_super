@@ -16,3 +16,16 @@ class MarketSnapshotResponse(BaseModel):
     定義 /api/v1/market_snapshot 端點的回傳數據結構。
     """
     data: List[Factor]
+
+# --- 新增模型 ---
+class MasterInsight(BaseModel):
+    """ 定義單一大師觀點的數據結構 """
+    name: str
+    content: str
+
+class ShanJiaLangInitialData(BaseModel):
+    """ 定義「週報覆盤」頁面初始化數據的完整結構 """
+    week_list: List[str] = Field(..., description="所有可選的週次列表")
+    default_week: str = Field(..., description="預設選中的週次")
+    raw_content: str = Field(..., description="預設週次的原始文本內容")
+    master_insights: List[MasterInsight] = Field(..., description="所有可選的大師觀點列表")
