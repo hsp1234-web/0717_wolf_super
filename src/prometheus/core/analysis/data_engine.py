@@ -1,74 +1,112 @@
 import time
 import pandas as pd
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 from ...models.snapshot_models import Factor
 from ..queue.sqlite_queue import SQLiteQueue
 from ..clients.client_factory import ClientFactory
+from ..db.data_warehouse import DataWarehouse
 
 class DataEngine:
     """
-    數據引擎 v2.0 (進化版)
-    一個使用「客戶端工廠」模式的、具備性能監控能力的數據調度中心。
+    數據引擎 v3.0 (金剛之軀)
+    一個具備快取、性能監控與服務降級能力的韌性數據調度中心。
     """
-    def __init__(self, queue: SQLiteQueue):
+    def __init__(self, queue: SQLiteQueue, warehouse: DataWarehouse):
         self.queue = queue
+        self.warehouse = warehouse
         self.factors_config = [
             {'name': 'VIX 恐慌指數', 'category': '市場情緒', 'source': 'yfinance', 'symbol': '^VIX', 'value_col': 'Adj Close'},
             {'name': '美國十年債利率', 'category': '宏觀經濟', 'source': 'fred', 'symbol': 'DGS10', 'value_col': 'DGS10'},
-            {'name': '美元指數', 'category': '宏觀經濟', 'source': 'yfinance', 'symbol': 'DX-Y.NYB', 'value_col': 'Adj Close'},
-            {'name': 'S&P 500', 'category': '市場指數', 'source': 'yfinance', 'symbol': '^GSPC', 'value_col': 'Adj Close'},
         ]
         self.end_date = datetime.now()
         self.start_date = self.end_date - timedelta(days=30)
 
     @staticmethod
-    def _process_data(df: pd.DataFrame, value_col: str) -> Dict[str, Any]:
-        """從 DataFrame 中提取前端所需的數據格式，增加對 'Close' 的備用支持。"""
-        # 彈性欄位選擇：如果指定的 value_col 不存在，但 'Close' 存在，則使用 'Close'
+    def _process_data(df: pd.DataFrame, value_col: str) -> Tuple[Dict[str, Any], bool]:
+        """處理數據並回傳一個標記，指示數據是否陳舊。"""
         if value_col not in df.columns and 'Close' in df.columns:
             value_col = 'Close'
 
         if value_col not in df.columns:
-             # 如果兩個欄位都不存在，返回空結果
-            return {}
+            return ({"value": "N/A", "change": 0.0, "trend": []}, True)
 
         df = df.dropna(subset=[value_col])
-        if len(df) < 2: return {"value": "N/A", "change": 0.0, "trend": []}
+        if len(df) < 2: return ({"value": "N/A", "change": 0.0, "trend": []}, True)
+
+        is_stale = False
+        if 'fetched_at' in df.columns:
+            last_fetch = df['fetched_at'].max()
+            if isinstance(last_fetch, pd.Timestamp):
+                 last_fetch = last_fetch.to_pydatetime()
+
+            if datetime.now() - last_fetch > timedelta(hours=4):
+                is_stale = True
 
         latest = df[value_col].iloc[-1]
         previous = df[value_col].iloc[-2]
         change = ((latest - previous) / previous) * 100 if previous != 0 else 0
 
-        return {
-            "value": f"{latest:.2f}",
-            "change": round(change, 2),
-            "trend": df[value_col].tail(10).tolist()
-        }
+        result = {"value": f"{latest:.2f}", "change": round(change, 2), "trend": df[value_col].tail(10).tolist()}
+        return (result, is_stale)
 
-    def get_market_factors(self) -> List[Factor]:
-        """獲取並處理所有定義的市場因子。"""
-        all_factors = []
+    def _fetch_live_data(self, config: Dict) -> pd.DataFrame:
+        """從主數據源獲取即時數據。"""
         start_str = self.start_date.strftime('%Y-%m-%d')
         end_str = self.end_date.strftime('%Y-%m-%d')
+        client = ClientFactory.get_client(config['source'])
+        data = client.fetch_data(config['symbol'], start_str, end_str)
 
+        if not data.empty:
+            if config['source'] == 'fred':
+                 data.rename(columns={config['symbol']: config['value_col']}, inplace=True)
+            else:
+                 if 'Adj Close' in data.columns:
+                      data.rename(columns={'Adj Close': config['value_col']}, inplace=True)
+                 elif 'Close' in data.columns:
+                      data.rename(columns={'Close': config['value_col']}, inplace=True)
+                 else:
+                      data.rename(columns={data.columns[0]: config['value_col']}, inplace=True)
+        return data
+
+    def get_market_factors(self) -> List[Factor]:
+        all_factors = []
         for config in self.factors_config:
-            step_name = f"fetch_{config['source']}_{config['symbol']}"
+            step_name = f"get_factor_{config['symbol']}"
             start_time = time.time()
+
             try:
-                client = ClientFactory.get_client(config['source'])
-                data = client.fetch_data(config['symbol'], start_str, end_str)
+                # 1. 快取優先
+                cached_data = self.warehouse.get_data(config['symbol'], staleness_days=1)
+                if cached_data is not None:
+                    processed_data, is_stale = self._process_data(cached_data, 'data_value')
+                    if not is_stale:
+                        self.queue.log_performance('factor_fetch', f"{step_name}_cache_hit", time.time() - start_time)
+                        all_factors.append(Factor(category=config['category'], name=config['name'], **processed_data))
+                        continue
 
-                processed = self._process_data(data, config['value_col'])
-                if processed:
-                    all_factors.append(Factor(category=config['category'], name=config['name'], **processed))
-
+                # 2. 主數據源
+                live_data = self._fetch_live_data(config)
+                if not live_data.empty:
+                    self.warehouse.save_data(config['symbol'], live_data)
+                    processed_data, _ = self._process_data(live_data, config['value_col'])
+                    self.queue.log_performance('factor_fetch', f"{step_name}_live_success", time.time() - start_time)
+                    all_factors.append(Factor(category=config['category'], name=config['name'], **processed_data))
+                else:
+                    raise ValueError("Live data source returned no data.")
             except Exception as e:
-                print(f"警告: 處理因子 {config['name']} 時發生錯誤: {e}")
-            finally:
-                # 最終手段：無論如何都記錄性能
-                duration = time.time() - start_time
-                self.queue.log_performance('global_data_fetch', step_name, duration)
+                self.queue.log_performance('factor_fetch', f"{step_name}_live_fail", time.time() - start_time)
+                print(f"警告: 即時獲取 {config['name']} 失敗: {e}")
+
+                # 3. 服務降級
+                cached_data_fallback = self.warehouse.get_data(config['symbol'], staleness_days=365) # 放寬新鮮度以進行降級
+                if cached_data_fallback is not None:
+                    processed_data, _ = self._process_data(cached_data_fallback, 'data_value')
+                    processed_data['value'] = str(processed_data.get('value', 'N/A')) + " (舊)"
+                    all_factors.append(Factor(category=config['category'], name=config['name'], **processed_data))
+                    print(f"服務降級: 為 {config['name']} 提供陳舊的快取數據。")
+                else:
+                    print(f"錯誤: {config['name']} 無法從任何來源獲取，已放棄。")
 
         return all_factors

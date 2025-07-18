@@ -1,7 +1,7 @@
 import os
 import subprocess
 import time
-from IPython.display import display, HTML, Javascript
+from IPython.display import display, HTML
 
 def run_command(command):
     """執行一個 shell 命令並打印輸出"""
@@ -58,7 +58,7 @@ def main():
     for i in range(num_workers):
         worker_log = open(f"worker_{i+1}.log", "w")
         worker_process = subprocess.Popen(
-            f"python real_worker.py",
+            "python real_worker.py",
             shell=True,
             stdout=worker_log,
             stderr=worker_log

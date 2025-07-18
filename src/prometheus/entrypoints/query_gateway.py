@@ -25,16 +25,29 @@ class TaskResultResponse(BaseModel):
     created_at: float
     updated_at: float
 
+from src.prometheus.core.db.data_warehouse import DataWarehouse # 導入
+
+app = FastAPI(title="作戰司令部 API", version="1.8.0 (金剛之軀)")
+
 # --- 核心服務與依賴注入 ---
 def get_db_path():
     return os.getenv('DB_PATH', 'data/prometheus.db')
+
+def get_warehouse_path():
+    return os.getenv('WAREHOUSE_PATH', 'data/warehouse.duckdb')
 
 def get_task_queue(db_path: str = Depends(get_db_path)) -> SQLiteQueue:
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     return SQLiteQueue(db_path)
 
-def get_data_engine(queue: SQLiteQueue = Depends(get_task_queue)) -> DataEngine:
-    return DataEngine(queue)
+def get_data_warehouse(warehouse_path: str = Depends(get_warehouse_path)) -> DataWarehouse:
+    return DataWarehouse(warehouse_path)
+
+def get_data_engine(
+    queue: SQLiteQueue = Depends(get_task_queue),
+    warehouse: DataWarehouse = Depends(get_data_warehouse)
+) -> DataEngine:
+    return DataEngine(queue, warehouse)
 
 # --- API 端點定義 ---
 @app.get("/health", tags=["系統監控"])

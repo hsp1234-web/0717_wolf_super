@@ -52,7 +52,7 @@ def main():
         response.raise_for_status()  # 如果狀態碼不是 2xx，則引發異常
 
         result = response.json()
-        print(f"\n✅ 任務成功提交！")
+        print("\n✅ 任務成功提交！")
         print(f"   - 伺服器回應: {result.get('message')}")
         print(f"   - 任務 ID: {result.get('task_id')}")
         print("\n請在 Colab 的「神之眼」儀表板中觀察日誌以確認執行情況。")

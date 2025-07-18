@@ -3,7 +3,6 @@ import os
 import traceback
 import random
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
-from src.prometheus.core.logging.log_manager import LogManager
 
 # --- 裝備性能計時器 (裝飾器) ---
 def timeit(queue, task_id, step_name):

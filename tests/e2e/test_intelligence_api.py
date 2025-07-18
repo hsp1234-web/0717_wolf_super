@@ -3,14 +3,13 @@ import pytest
 from fastapi.testclient import TestClient
 import sys
 import os
-import multiprocessing
 import uuid
 
 # 將專案根目錄加入 sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from src.prometheus.entrypoints.query_gateway import app, get_task_queue
-from src.prometheus.models.snapshot_models import ShanJiaLangInitialData, MasterInsight
+from src.prometheus.models.snapshot_models import ShanJiaLangInitialData
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
 
 # --- 測試用的依賴覆寫 ---
