@@ -29,3 +29,11 @@ class ShanJiaLangInitialData(BaseModel):
     default_week: str = Field(..., description="預設選中的週次")
     raw_content: str = Field(..., description="預設週次的原始文本內容")
     master_insights: List[MasterInsight] = Field(..., description="所有可選的大師觀點列表")
+
+# --- 新增 AI 分析請求模型 ---
+class AIAnalysisRequest(BaseModel):
+    """
+    定義提交給 AI 進行初步分析的請求數據結構。
+    """
+    raw_content: str = Field(..., description="當週的原始文本")
+    selected_masters: List[str] = Field(..., description="用戶選擇融合的大師觀點名稱列表")

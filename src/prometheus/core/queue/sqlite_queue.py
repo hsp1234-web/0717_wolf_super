@@ -1,142 +1,110 @@
-import json
 import sqlite3
+import json
 import time
-import abc
-from pathlib import Path
-from typing import Any, Optional
+import uuid
+from typing import Optional, Dict, Any, Tuple
 
-import logging
-
-# 為此模組創建一個標準的 logger，而不是依賴 LogManager
-# 這使得模組更加獨立和可重用
-logger = logging.getLogger(__name__)
-
-
-class BaseQueue(abc.ABC):
+class SQLiteQueue:
     """
-    任務佇列抽象基底類別。
-    定義了所有佇列實現都必須提供的標準介面。
+    一個基於 SQLite 的持久化任務佇列，支持任務狀態追蹤。
     """
-
-    @abc.abstractmethod
-    def put(self, task_data: dict) -> None:
-        """
-        將一個新任務放入佇列。
-
-        Args:
-            task_data (dict): 要執行的任務內容，必須是可序列化為 JSON 的字典。
-        """
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def get(self) -> dict | None:
-        """
-        從佇列中取出一個待處理的任務。
-        此操作應具備原子性，防止多個工作者取得同一個任務。
-
-        Returns:
-            dict | None: 如果佇列中有任務，則返回任務內容；否則返回 None。
-        """
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def task_done(self, task_id: any) -> None:
-        """
-        標記一個任務已完成。
-
-        Args:
-            task_id (any): 已完成任務的唯一識別碼。
-        """
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def qsize(self) -> int:
-        """
-        返回佇列中待處理任務的數量。
-
-        Returns:
-            int: 待處理任務的數量。
-        """
-        raise NotImplementedError
-
-
-class SQLiteQueue(BaseQueue):
-    """
-    一個基於 SQLite 的、支持阻塞和毒丸關閉的持久化佇列。
-    """
-
-    def __init__(self, db_path: str | Path, table_name: str = "queue"):
-        self.db_path = Path(db_path)
-        self.table_name = table_name
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        # 允許多執行緒共享同一個連線，並增加超時
-        self.conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=10)
+    def __init__(self, db_path: str):
+        self.db_path = db_path
         self._init_db()
 
+    def _get_conn(self):
+        # 每次操作都建立新的連線，以簡化多線程/多進程下的問題
+        conn = sqlite3.connect(self.db_path, timeout=10)
+        conn.row_factory = sqlite3.Row
+        return conn
+
     def _init_db(self):
-        with self.conn:
-            self.conn.execute(f"""
-                CREATE TABLE IF NOT EXISTS {self.table_name} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    item TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        """初始化資料庫和資料表。"""
+        with self._get_conn() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS tasks (
+                    task_id TEXT PRIMARY KEY,
+                    task_type TEXT NOT NULL,
+                    payload TEXT,
+                    status TEXT NOT NULL,
+                    result TEXT,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
                 )
             """)
+            conn.commit()
 
-    def put(self, item: Any):
-        """將一個項目放入佇列。"""
-        with self.conn:
-            self.conn.execute(
-                f"INSERT INTO {self.table_name} (item) VALUES (?)", (json.dumps(item),)
+    def put(self, task_type: str, payload: Optional[Dict[str, Any]] = None) -> str:
+        """
+        將一個新任務加入佇列。
+        """
+        task_id = str(uuid.uuid4())
+        current_time = time.time()
+        payload_json = json.dumps(payload) if payload else None
+
+        with self._get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO tasks (task_id, task_type, payload, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (task_id, task_type, payload_json, 'pending', current_time, current_time)
             )
+            conn.commit()
+        return task_id
 
-    def get(self, block: bool = True, timeout: Optional[float] = None) -> Optional[Any]:
+    def get(self) -> Optional[Tuple[str, str, Optional[Dict[str, Any]]]]:
         """
-        從佇列中取出一個項目。
-        如果 block=True，則會等待直到有項目可用。
+        以原子操作獲取一個待處理的任務並將其標記為 'processing'。
         """
-        start_time = time.time()
-        while True:
-            try:
-                with self.conn:
-                    cursor = self.conn.cursor()
-                    cursor.execute(
-                        f"SELECT id, item FROM {self.table_name} ORDER BY id LIMIT 1"
-                    )
-                    row = cursor.fetchone()
+        with self._get_conn() as conn:
+            cursor = conn.cursor()
+            # 以原子方式尋找並更新任務
+            cursor.execute("""
+                UPDATE tasks
+                SET status = 'processing', updated_at = ?
+                WHERE task_id = (
+                    SELECT task_id FROM tasks
+                    WHERE status = 'pending'
+                    ORDER BY created_at
+                    LIMIT 1
+                )
+                RETURNING task_id, task_type, payload;
+            """, (time.time(),))
 
-                    if row:
-                        item_id, item_json = row
-                        cursor.execute(
-                            f"DELETE FROM {self.table_name} WHERE id = ?", (item_id,)
-                        )
-                        return json.loads(item_json)
-            except sqlite3.Error as e:
-                # 如果發生資料庫錯誤，短暫等待後重試
-                logger.error(f"從佇列讀取時發生資料庫錯誤: {e}", exc_info=True)
-                time.sleep(0.1)
+            task = cursor.fetchone()
+            conn.commit()
 
-            if not block:
-                return None
+        if task:
+            payload = json.loads(task['payload']) if task['payload'] else None
+            return task['task_id'], task['task_type'], payload
+        return None
 
-            if timeout and (time.time() - start_time) > timeout:
-                return None
+    def update_task(self, task_id: str, status: str, result: Optional[Dict[str, Any]] = None):
+        """
+        更新任務的狀態和結果。
+        """
+        current_time = time.time()
+        result_json = json.dumps(result) if result else None
 
-            time.sleep(0.1)  # 避免過於頻繁地查詢
+        with self._get_conn() as conn:
+            conn.execute(
+                """
+                UPDATE tasks
+                SET status = ?, result = ?, updated_at = ?
+                WHERE task_id = ?
+                """,
+                (status, result_json, current_time, task_id)
+            )
+            conn.commit()
 
-    def qsize(self) -> int:
-        """返回佇列中的項目數量。"""
-        with self.conn:
-            cursor = self.conn.cursor()
-            cursor.execute(f"SELECT COUNT(*) FROM {self.table_name}")
-            return cursor.fetchone()[0]
+    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """
+        根據任務 ID 獲取任務的詳細資訊。
+        """
+        with self._get_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM tasks WHERE task_id = ?", (task_id,))
+            task = cursor.fetchone()
 
-    def task_done(self, task_id: any) -> None:
-        """在這個實作中，get() 已經是原子性的，所以這個方法可以留空。"""
-        pass
-
-    def close(self):
-        """關閉資料庫連線。"""
-        if self.conn:
-            self.conn.close()
-            self.conn = None
+        return dict(task) if task else None

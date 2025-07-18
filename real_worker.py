@@ -1,108 +1,73 @@
-# -*- coding: utf-8 -*-
-import json
-import logging
 import time
-import random
+import os
+import traceback
+import sys
 
-from tenacity import retry, stop_after_attempt, wait_fixed
+# 假設此 worker 檔案在專案根目錄下
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-# 修正導入
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
-from src.prometheus.core.constants import DB_PATH
-from src.prometheus.core.logging_config import setup_logging
+from src.prometheus.core.logging.log_manager import LogManager
 
-# --- 新增的任務執行模組 ---
-import yfinance as yf
-import pandas as pd
-
-# 設定日誌
-setup_logging()
-logger = logging.getLogger(__name__)
-
-# --- 任務處理函數 ---
-
-def execute_simple_moving_average(payload: dict):
+def process_initial_analysis(payload):
     """
-    執行簡單移動平均線 (SMA) 計算任務。
+    模擬 AI 進行初步分析。
+    在真實世界中，這裡會呼叫一個大型語言模型。
     """
-    symbol = payload.get("symbol")
-    window = payload.get("window", 20)
+    time.sleep(2) # 模擬 AI 思考時間
+    raw_content = payload.get('raw_content', '')
+    selected_masters = payload.get('selected_masters', [])
 
-    if not symbol:
-        logger.error("SMA 任務失敗：缺少股票代碼 (symbol)。")
-        return
+    analysis_summary = f"已分析文本，長度為 {len(raw_content)} 字元。"
+    if selected_masters:
+        analysis_summary += f" 已融合 {len(selected_masters)} 位大師的觀點: {', '.join(selected_masters)}。"
+    else:
+        analysis_summary += " 未載入額外大師觀點。"
 
-    logger.info(f"開始執行 SMA 任務：股票代碼={symbol}, 窗口={window}")
-    try:
-        stock = yf.Ticker(symbol)
-        # 獲取足夠的歷史數據
-        hist = stock.history(period=f"{window+50}d")
-        if hist.empty:
-            logger.error(f"SMA 任務失敗：無法獲取 {symbol} 的歷史數據。")
-            return
+    return {
+        "summary": analysis_summary,
+        "strategy_suggestion": "基於當前情報，建議採取「VIX 波動率擴大」相關策略。"
+    }
 
-        sma = hist['Close'].rolling(window=window).mean().iloc[-1]
-        # 在原有的日誌基礎上，使用 logging.SUCCESS
-        logger.info(f"✅ SMA 任務完成: {symbol} 的 {window} 日均線為: {sma:.2f}")
-    except Exception as e:
-        logger.error(f"SMA 任務執行出錯：{e}")
+def main():
+    db_path = os.getenv('DB_PATH', 'data/prometheus.db')
+    queue = SQLiteQueue(db_path)
+    # 在 worker 中使用 log_manager 可能會過於複雜，暫時使用 print
+    # log_manager = LogManager(db_path)
+    worker_id = f"worker-{os.getpid()}"
+    # logger = log_manager.get_logger(worker_id)
 
-# --- 任務分派器 ---
+    print(f"堅韌工人 {worker_id} 已啟動...")
 
-TASK_DISPATCHER = {
-    "simple_moving_average": execute_simple_moving_average
-}
+    while True:
+        try:
+            task = queue.get()
+            if task:
+                task_id, task_type, payload = task
+                print(f"接收到任務 {task_id} (類型: {task_type})")
 
-class RealWorker:
-    def __init__(self):
-        # 修正實例化
-        self.task_queue = SQLiteQueue(db_path=DB_PATH)
-        self.worker_id = f"worker-{random.randint(1000, 9999)}"
-        logger.info(f"工人 {self.worker_id} 已啟動，準備接收任務。")
+                try:
+                    result = None
+                    if task_type == 'initial_analysis':
+                        result = process_initial_analysis(payload)
+                    else:
+                        print(f"未知的任務類型: {task_type}")
+                        result = {"error": f"未知的任務類型: {task_type}"}
 
-    # tenacity 的重試邏輯在這裡可能不再完全適用於簡單的 get，但暫時保留
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-    def fetch_and_process_task(self):
-        # 使用 get 方法
-        task_data_str = self.task_queue.get(block=False) # 非阻塞獲取
-        if task_data_str:
-            logger.info(f"{self.worker_id} 領取到新任務。")
+                    print(f"任務 {task_id} 執行成功。")
+                    queue.update_task(task_id, 'completed', result)
 
-            try:
-                # 反序列化 JSON 字串為 Python 字典
-                task_data = json.loads(task_data_str)
-                task_type = task_data.get("task_type")
-                payload = task_data.get("payload", {})
-
-                handler = TASK_DISPATCHER.get(task_type)
-
-                if handler:
-                    handler(payload)
-                else:
-                    logger.warning(f"未知的任務類型: {task_type}，任務將被忽略。")
-
-                # SQLiteQueue 的 get 是原子性的，取出即刪除，所以不需要 complete/fail
-                logger.info(f"任務處理完畢。")
-
-            except json.JSONDecodeError:
-                logger.error(f"任務數據格式無效 (非 JSON)，任務已被丟棄。")
-            except Exception as e:
-                logger.error(f"處理任務時發生未知錯誤: {e}，任務已被丟棄。")
-        else:
-            # logger.info(f"{self.worker_id} 未發現新任務，稍後重試。")
-            pass # 沒有任務時保持安靜
-
-    def run(self):
-        while True:
-            try:
-                self.fetch_and_process_task()
-            except Exception as e:
-                # 如果 fetch_and_process_task 的 retry 耗盡，這裡會捕獲異常
-                logger.error(f"獲取任務失敗，暫停 10 秒後重試: {e}")
-                time.sleep(10)
-
-            time.sleep(5) # 每 5 秒輪詢一次
+                except Exception as e:
+                    error_message = f"任務 {task_id} 執行失敗: {e}"
+                    print(error_message)
+                    print(traceback.format_exc())
+                    queue.update_task(task_id, 'failed', {'error': error_message})
+            else:
+                time.sleep(1)
+        except Exception as e:
+            print(f"工人主循環發生嚴重錯誤: {e}")
+            print(traceback.format_exc())
+            time.sleep(5)
 
 if __name__ == "__main__":
-    worker = RealWorker()
-    worker.run()
+    main()
