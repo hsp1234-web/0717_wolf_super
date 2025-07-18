@@ -1,7 +1,9 @@
-import duckdb
 import os
+
+import duckdb
 import pandas as pd
 from prometheus.core.logging.log_manager import LogManager
+
 
 class DBManager:
     def __init__(self, db_path: str = "data/analytics_warehouse/factors.duckdb"):
@@ -42,19 +44,19 @@ class DBManager:
                     self.logger.info(f"成功創建表格 '{table_name}' 並定義了 (date, symbol) 複合主鍵。")
 
                     # 註冊 DataFrame 以便後續插入
-                    con.register('df_to_insert', data)
+                    con.register("df_to_insert", data)
 
                     # 動態添加其餘欄位
-                    initial_cols = {'date', 'symbol'}
+                    initial_cols = {"date", "symbol"}
                     remaining_cols = [col for col in data.columns if col not in initial_cols]
 
                     for col in remaining_cols:
                         col_dtype = data[col].dtype
                         sql_type = self._map_dtype_to_sql(col_dtype)
-                        con.execute(f"ALTER TABLE {table_name} ADD COLUMN \"{col}\" {sql_type};")
+                        con.execute(f'ALTER TABLE {table_name} ADD COLUMN "{col}" {sql_type};')
 
                     # 插入完整數據
-                    all_cols = ['date', 'symbol'] + remaining_cols
+                    all_cols = ["date", "symbol"] + remaining_cols
                     col_names_str = ", ".join(f'"{c}"' for c in all_cols)
                     con.execute(f"INSERT INTO {table_name} ({col_names_str}) SELECT {col_names_str} FROM df_to_insert")
 
@@ -76,7 +78,7 @@ class DBManager:
 
                     # --- [核心改造] ---
                     # 使用 DuckDB 的 ON CONFLICT (UPSERT) 語法實現高效、原子性的數據合併。
-                    con.register('df_to_upsert', data)
+                    con.register("df_to_upsert", data)
 
                     all_columns = [f'"{c}"' for c in data.columns]
                     update_columns = [col for col in all_columns if col.lower() not in ('"date"', '"symbol"')]
@@ -90,7 +92,7 @@ class DBManager:
                         ON CONFLICT (date, symbol) DO NOTHING;
                         """
                     else:
-                        set_clause = ", ".join([f'{col} = excluded.{col}' for col in update_columns])
+                        set_clause = ", ".join([f"{col} = excluded.{col}" for col in update_columns])
                         upsert_sql = f"""
                         INSERT INTO {table_name} ({', '.join(all_columns)})
                         SELECT {', '.join(all_columns)} FROM df_to_upsert
@@ -136,17 +138,17 @@ class DBManager:
                 return df
         except Exception as e:
             self.logger.error(f"讀取表格 '{table_name}' 時發生錯誤: {e}", exc_info=True)
-            return pd.DataFrame() # 在出錯時返回一個空的 DataFrame
+            return pd.DataFrame()  # 在出錯時返回一個空的 DataFrame
 
     def _map_dtype_to_sql(self, dtype):
         """將 Pandas 的 dtype 轉換為 SQL 類型字串。"""
         if pd.api.types.is_integer_dtype(dtype):
-            return 'BIGINT'
+            return "BIGINT"
         elif pd.api.types.is_float_dtype(dtype):
-            return 'DOUBLE'
+            return "DOUBLE"
         elif pd.api.types.is_datetime64_any_dtype(dtype):
-            return 'TIMESTAMP'
+            return "TIMESTAMP"
         elif pd.api.types.is_string_dtype(dtype) or pd.api.types.is_object_dtype(dtype):
-            return 'VARCHAR'
+            return "VARCHAR"
         else:
-            return 'VARCHAR'
+            return "VARCHAR"

@@ -1,12 +1,12 @@
 # src/prometheus/core/engines/crypto_factor_engine.py
 
-import pandas as pd
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
+
+import pandas as pd
 
 from src.prometheus.core.analyzers.base_analyzer import BaseAnalyzer
 from src.prometheus.core.clients.client_factory import ClientFactory
-
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class CryptoFactorEngine(BaseAnalyzer):
         """
         super().__init__(analyzer_name="CryptoFactorEngine")
         self.client_factory = client_factory
-        self.yfinance_client = self.client_factory.get_client('yfinance')
+        self.yfinance_client = self.client_factory.get_client("yfinance")
 
     def _load_data(self) -> pd.DataFrame:
         """
@@ -53,10 +53,10 @@ class CryptoFactorEngine(BaseAnalyzer):
         :param config: 可選的配置字典。
         :return: 包含新計算因子的 DataFrame。
         """
-        if 'symbol' not in data.columns:
+        if "symbol" not in data.columns:
             raise ValueError("輸入的 DataFrame 必須包含 'symbol' 欄位。")
 
-        symbol = data['symbol'].iloc[0]
+        symbol = data["symbol"].iloc[0]
         self.logger.info(f"開始為加密貨幣 {symbol} 計算因子...")
 
         # 複製數據以避免修改原始 DataFrame
@@ -80,35 +80,41 @@ class CryptoFactorEngine(BaseAnalyzer):
             # 獲取 NQ=F 的數據
             start_date = df.index.min()
             end_date = df.index.max()
-            nasdaq_data = await self.yfinance_client.fetch_data('NQ=F', start_date=start_date, end_date=end_date)
+            nasdaq_data = await self.yfinance_client.fetch_data("NQ=F", start_date=start_date, end_date=end_date)
             if nasdaq_data is None or nasdaq_data.empty:
                 self.logger.warning("無法獲取納斯達克數據 (NQ=F)，跳過相關性計算。")
-                df['factor_corr_nq'] = None
+                df["factor_corr_nq"] = None
                 return df
 
             # 確保兩個 DataFrame 的索引都是日期時間類型且沒有重複
             df.index = pd.to_datetime(df.index)
-            df = df[~df.index.duplicated(keep='first')]
+            df = df[~df.index.duplicated(keep="first")]
 
             nasdaq_data.index = pd.to_datetime(nasdaq_data.index)
-            nasdaq_data = nasdaq_data[~nasdaq_data.index.duplicated(keep='first')]
+            nasdaq_data = nasdaq_data[~nasdaq_data.index.duplicated(keep="first")]
 
             # 合併數據並計算日收益率
-            merged_df = pd.merge(df[['close']], nasdaq_data[['close']], left_index=True, right_index=True, suffixes=('_crypto', '_nasdaq'))
-            merged_df['crypto_returns'] = merged_df['close_crypto'].pct_change()
-            merged_df['nasdaq_returns'] = merged_df['close_nasdaq'].pct_change()
+            merged_df = pd.merge(
+                df[["close"]],
+                nasdaq_data[["close"]],
+                left_index=True,
+                right_index=True,
+                suffixes=("_crypto", "_nasdaq"),
+            )
+            merged_df["crypto_returns"] = merged_df["close_crypto"].pct_change()
+            merged_df["nasdaq_returns"] = merged_df["close_nasdaq"].pct_change()
 
             # 計算 30 日滾動相關性
-            correlation = merged_df['crypto_returns'].rolling(window=30).corr(merged_df['nasdaq_returns'])
+            correlation = merged_df["crypto_returns"].rolling(window=30).corr(merged_df["nasdaq_returns"])
 
             # 將計算出的相關性合併回原始 DataFrame
-            df['factor_corr_nq'] = correlation
+            df["factor_corr_nq"] = correlation
 
             self.logger.debug("成功計算與納斯達克指數的相關性。")
 
         except Exception as e:
             self.logger.error(f"計算納斯達克相關性時出錯: {e}", exc_info=True)
-            df['factor_corr_nq'] = None
+            df["factor_corr_nq"] = None
 
         return df
 
@@ -120,12 +126,12 @@ class CryptoFactorEngine(BaseAnalyzer):
         self.logger.debug("正在計算恐懼與貪婪指數代理（7日已實現波動率）...")
         try:
             # 計算日收益率
-            returns = df['close'].pct_change()
+            returns = df["close"].pct_change()
             # 計算 7 日滾動標準差（波動率）
             volatility = returns.rolling(window=7).std()
-            df['factor_fear_greed_proxy'] = volatility
+            df["factor_fear_greed_proxy"] = volatility
             self.logger.debug("成功計算恐懼與貪婪指數代理。")
         except Exception as e:
             self.logger.error(f"計算恐懼與貪婪指數代理時出錯: {e}", exc_info=True)
-            df['factor_fear_greed_proxy'] = None
+            df["factor_fear_greed_proxy"] = None
         return df

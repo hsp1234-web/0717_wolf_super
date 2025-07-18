@@ -1,5 +1,5 @@
-import pytest
 import pandas as pd
+import pytest
 from prometheus.core.clients.fred import FredClient
 from prometheus.core.config import config
 
@@ -7,9 +7,11 @@ from prometheus.core.config import config
 api_key = config.get("clients.fred.api_key")
 skip_if_no_key = pytest.mark.skipif(not api_key, reason="FRED_API_KEY not found in config.yml")
 
+
 @pytest.fixture
 def fred_client():
     return FredClient()
+
 
 def test_fetch_public_series(fred_client):
     """
@@ -19,6 +21,7 @@ def test_fetch_public_series(fred_client):
     assert not df.empty
     assert isinstance(df, pd.DataFrame)
     assert "GDP" in df.columns
+
 
 @skip_if_no_key
 def test_fetch_private_series(fred_client):

@@ -2,29 +2,29 @@
 """
 對 EvolutionChamber 的單元測試。
 """
-import unittest
-from unittest.mock import MagicMock
 
 # 將 src 目錄添加到 PYTHONPATH
 import sys
+import unittest
 from pathlib import Path
+from unittest.mock import MagicMock
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
-from prometheus.services.evolution_chamber import EvolutionChamber
 from prometheus.models.strategy_models import PerformanceReport, Strategy
+from prometheus.services.evolution_chamber import EvolutionChamber
+
 
 class TestEvolutionChamber(unittest.TestCase):
-
     def setUp(self):
         """
         設置模擬的依賴項和測試數據。
         """
         self.mock_backtester = MagicMock()
-        self.available_factors = ['T10Y2Y', 'VIXCLS', 'DXY', 'SOFR', 'MOVE', 'USDOLLAR']
+        self.available_factors = ["T10Y2Y", "VIXCLS", "DXY", "SOFR", "MOVE", "USDOLLAR"]
 
         self.chamber = EvolutionChamber(
-            backtesting_service=self.mock_backtester,
-            available_factors=self.available_factors
+            backtesting_service=self.mock_backtester, available_factors=self.available_factors
         )
 
     def test_toolbox_can_create_individual(self):
@@ -59,7 +59,7 @@ class TestEvolutionChamber(unittest.TestCase):
 
         # 驗證傳遞給 run 方法的 strategy 物件內容是否正確
         called_strategy = self.mock_backtester.run.call_args[0][0]
-        expected_factors = ['T10Y2Y', 'VIXCLS', 'DXY', 'SOFR', 'MOVE']
+        expected_factors = ["T10Y2Y", "VIXCLS", "DXY", "SOFR", "MOVE"]
         self.assertCountEqual(called_strategy.factors, expected_factors)
 
         # 驗證返回的適應度分數是否正確
@@ -70,6 +70,7 @@ class TestEvolutionChamber(unittest.TestCase):
         """
         測試：驗證演化主迴圈能夠運行並返回名人堂物件。
         """
+
         # 1. 準備 (Arrange)
         # 讓模擬的回測器根據個體的基因（索引）返回一個可預測的分數
         def mock_evaluate_logic(strategy: Strategy) -> PerformanceReport:
@@ -86,12 +87,13 @@ class TestEvolutionChamber(unittest.TestCase):
 
         # 3. 斷言 (Assert)
         self.assertGreater(self.mock_backtester.run.call_count, 0)
-        self.assertEqual(len(hof), 1) # 驗證名人堂中有一個最優個體
-        self.assertTrue(hasattr(hof[0], 'fitness')) # 驗證最優個體有適應度屬性
-        self.assertTrue(hof[0].fitness.valid) # 驗證適應度是有效的
-        self.assertGreater(hof[0].fitness.values[0], 0) # 驗證適應度分數大於0
+        self.assertEqual(len(hof), 1)  # 驗證名人堂中有一個最優個體
+        self.assertTrue(hasattr(hof[0], "fitness"))  # 驗證最優個體有適應度屬性
+        self.assertTrue(hof[0].fitness.valid)  # 驗證適應度是有效的
+        self.assertGreater(hof[0].fitness.values[0], 0)  # 驗證適應度分數大於0
 
         print("\n[PASS] EvolutionChamber 的演化主迴圈測試成功。")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

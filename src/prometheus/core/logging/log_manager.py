@@ -3,11 +3,13 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+
 class LogManager:
     """
     一個單例的日誌管理器。
     它能為整個應用程式配置日誌，將日誌輸出到控制台和指定的可輪替檔案中。
     """
+
     _instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -32,8 +34,7 @@ class LogManager:
         self.log_file_path = log_path / log_file
         self.log_level = log_level
         self.formatter = logging.Formatter(
-            "[%(asctime)s] [%(levelname)s] [%(name)s] - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            "[%(asctime)s] [%(levelname)s] [%(name)s] - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
         self._initialized = True
 

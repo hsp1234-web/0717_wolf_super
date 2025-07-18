@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 import subprocess
-import time
 import sys
-from playwright.sync_api import sync_playwright, expect
+import time
+
+from playwright.sync_api import expect, sync_playwright
 
 # --- 作戰參數 ---
 SERVICE_URL = "http://127.0.0.1:8000/"
 STARTUP_WAIT_TIME = 5  # 啟動後等待時間
-VERIFICATION_TIMEOUT = 10000 # 頁面元素驗證的超時時間 (毫秒)
+VERIFICATION_TIMEOUT = 10000  # 頁面元素驗證的超時時間 (毫秒)
 
 print("戰報：正在啟動儀表板服務...")
 server_process = subprocess.Popen(["poetry", "run", "python", "run.py", "dashboard"])

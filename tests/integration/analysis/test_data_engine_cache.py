@@ -6,26 +6,19 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 import requests_cache
-
 from prometheus.core.analysis.data_engine import DataEngine
 from prometheus.core.clients.fred import FredClient
 
 # 獲取 API 金鑰
-FRED_API_KEY = os.environ.get(
-    "FRED_API_KEY_TEST_ONLY"
-)  # 使用不同的環境變數名稱以示區隔
+FRED_API_KEY = os.environ.get("FRED_API_KEY_TEST_ONLY")  # 使用不同的環境變數名稱以示區隔
 
 
 @pytest.fixture(scope="module")
 def real_fred_client():
     """創建一個使用暫存快取的真實客戶端實例。"""
     if not FRED_API_KEY:
-        pytest.skip(
-            "FRED_API_KEY_TEST_ONLY 環境變數未設定，跳過此整合測試。"
-        )  # <--- 如果沒有金鑰則跳過
-    session = requests_cache.CachedSession(
-        "test_cache", backend="sqlite", expire_after=300
-    )
+        pytest.skip("FRED_API_KEY_TEST_ONLY 環境變數未設定，跳過此整合測試。")  # <--- 如果沒有金鑰則跳過
+    session = requests_cache.CachedSession("test_cache", backend="sqlite", expire_after=300)
     # FredClient 現在接受 api_key 參數，並且我們已修改其 __init__
     return FredClient(api_key=FRED_API_KEY, session=session)
 
@@ -46,7 +39,6 @@ def cleanup_cache(real_fred_client):
 def temp_db_data_engine():
     """一個使用內存 DuckDB 的 DataEngine 實ли，確保測試隔離。"""
     import duckdb
-
     from prometheus.core.clients.fred import FredClient
     from prometheus.core.clients.taifex_db import TaifexDBClient
     from prometheus.core.clients.yfinance import YFinanceClient
@@ -55,9 +47,7 @@ def temp_db_data_engine():
     fred_client = FredClient(api_key="fake_key")
     taifex_client = TaifexDBClient()
 
-    engine = DataEngine(
-        yf_client=yf_client, fred_client=fred_client, taifex_client=taifex_client
-    )
+    engine = DataEngine(yf_client=yf_client, fred_client=fred_client, taifex_client=taifex_client)
     engine.db_con = duckdb.connect(database=":memory:")
     engine.db_con.execute(CREATE_HOURLY_TABLE_SQL)
 
@@ -67,9 +57,7 @@ def temp_db_data_engine():
 
 
 @patch("prometheus.core.analysis.data_engine.DataEngine._calculate_technicals")
-@patch(
-    "prometheus.core.analysis.data_engine.DataEngine._calculate_approx_credit_spread"
-)
+@patch("prometheus.core.analysis.data_engine.DataEngine._calculate_approx_credit_spread")
 @patch("prometheus.core.analysis.data_engine.DataEngine._calculate_proxy_move")
 @patch("prometheus.core.analysis.data_engine.DataEngine._calculate_gold_copper_ratio")
 @patch("prometheus.core.clients.yfinance.YFinanceClient.fetch_data")  # Mock API 客戶端

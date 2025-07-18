@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-import subprocess
-import time
-import sys
 import os
 import re
-from playwright.sync_api import sync_playwright, expect
+import subprocess
+import sys
+import time
+
+from playwright.sync_api import expect, sync_playwright
 
 SERVICE_URL = "http://127.0.0.1:8000/"
 DB_FILE = "tasks.sqlite"
@@ -36,7 +37,9 @@ try:
 
         print("戰報：等待任務完成...")
         status_message = page.locator("#task-status-message")
-        expect(status_message).to_have_text(re.compile(r"任務結果: 分析完成。市場壓力指數評估為: \d+"), timeout=VERIFICATION_TIMEOUT)
+        expect(status_message).to_have_text(
+            re.compile(r"任務結果: 分析完成。市場壓力指數評估為: \d+"), timeout=VERIFICATION_TIMEOUT
+        )
         print("戰報：任務已完成。")
 
         print("戰報：驗證歷史紀錄面板是否已更新...")

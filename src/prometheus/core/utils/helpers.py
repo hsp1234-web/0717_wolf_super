@@ -64,26 +64,20 @@ if __name__ == "__main__":
     start_time = time.time()
     response1 = session.get(test_url)
     end_time = time.time()
-    logger.info(
-        f"第一次請求完成。耗時: {end_time - start_time:.2f} 秒。From Cache: {response1.from_cache}"
-    )
+    logger.info(f"第一次請求完成。耗時: {end_time - start_time:.2f} 秒。From Cache: {response1.from_cache}")
 
     logger.info("\n正在進行第二次請求 (應立即完成)...")
     start_time = time.time()
     response2 = session.get(test_url)
     end_time = time.time()
-    logger.info(
-        f"第二次請求完成。耗時: {end_time - start_time:.2f} 秒。From Cache: {response2.from_cache}"
-    )
+    logger.info(f"第二次請求完成。耗時: {end_time - start_time:.2f} 秒。From Cache: {response2.from_cache}")
 
     logger.info("\n正在進行強制刷新請求 (應再次有 2 秒延遲)...")
     start_time = time.time()
     with temporary_disabled_cache(session):
         response3 = session.get(test_url)
     end_time = time.time()
-    logger.info(
-        f"強制刷新請求完成。耗時: {end_time - start_time:.2f} 秒。From Cache: {response3.from_cache}"
-    )
+    logger.info(f"強制刷新請求完成。耗時: {end_time - start_time:.2f} 秒。From Cache: {response3.from_cache}")
 
     logger.info("\n--- [自我測試] 完成 ---")
     session.cache.clear()
@@ -96,9 +90,7 @@ from typing import Tuple
 import pandas as pd
 
 
-def load_ohlcv_data(
-    file_path: Path, split_ratio: float = 0.7
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_ohlcv_data(file_path: Path, split_ratio: float = 0.7) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     從 CSV 檔案加載 OHLCV 數據，並將其分割為樣本內和樣本外數據集。
 
@@ -119,9 +111,7 @@ def load_ohlcv_data(
     in_sample_df = df.iloc[:split_point]
     out_of_sample_df = df.iloc[split_point:]
 
-    logger.info(
-        f"[DataLoader] 數據已分割：樣本內 {len(in_sample_df)} 筆, 樣本外 {len(out_of_sample_df)} 筆。"
-    )
+    logger.info(f"[DataLoader] 數據已分割：樣本內 {len(in_sample_df)} 筆, 樣本外 {len(out_of_sample_df)} 筆。")
 
     return in_sample_df, out_of_sample_df
 

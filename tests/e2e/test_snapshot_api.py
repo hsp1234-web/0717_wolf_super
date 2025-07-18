@@ -1,17 +1,20 @@
 import os
+import sqlite3
+
 import pytest
 from fastapi.testclient import TestClient
+
 from src.prometheus.entrypoints.query_gateway import app
 from src.prometheus.models.snapshot_models import Factor
-import sqlite3
 
 # 確保測試使用一個乾淨的資料庫
 TEST_DB = "data/test_heart_transplant.db"
-os.environ['DB_PATH'] = TEST_DB
+os.environ["DB_PATH"] = TEST_DB
 
 client = TestClient(app)
 
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
+
 
 @pytest.fixture
 def setup_db():
@@ -30,6 +33,7 @@ def setup_db():
 
     if os.path.exists(TEST_DB):
         os.remove(TEST_DB)
+
 
 @pytest.mark.e2e
 def test_data_engine_v2_workflow(setup_db):
@@ -64,7 +68,9 @@ def test_data_engine_v2_workflow(setup_db):
         table_exists = cursor.fetchone()
         assert table_exists is not None, "performance_logs 表應存在"
 
-        perf_logs_count = conn.execute("SELECT COUNT(*) FROM performance_logs WHERE task_id = 'global_data_fetch'").fetchone()[0]
+        perf_logs_count = conn.execute(
+            "SELECT COUNT(*) FROM performance_logs WHERE task_id = 'global_data_fetch'"
+        ).fetchone()[0]
         assert perf_logs_count > 0, "應在資料庫中找到性能日誌"
         print(f"[驗收成功] 已在資料庫中找到 {perf_logs_count} 筆性能日誌。")
     finally:

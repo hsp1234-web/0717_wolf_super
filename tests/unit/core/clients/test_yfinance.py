@@ -38,9 +38,7 @@ def create_sample_stock_data_for_test(
     """
     輔助函數，創建符合 yfinance.history() 輸出格式的假數據 DataFrame。
     """
-    dates = pd.to_datetime(
-        pd.date_range(start=start_date_str, end=end_date_str, freq="B")
-    )
+    dates = pd.to_datetime(pd.date_range(start=start_date_str, end=end_date_str, freq="B"))
     if dates.empty:
         return pd.DataFrame()
 
@@ -68,18 +66,14 @@ class TestYFinanceClientInitialization:
     def test_init_success(self, yfinance_client_fixture: YFinanceClient):
         assert yfinance_client_fixture.api_key is None
         assert yfinance_client_fixture.base_url is None
-        assert isinstance(
-            yfinance_client_fixture._session, requests.Session
-        )  # From BaseAPIClient
+        assert isinstance(yfinance_client_fixture._session, requests.Session)  # From BaseAPIClient
 
 
 class TestYFinanceClientFetchData:
     """測試 YFinanceClient.fetch_data 方法。"""
 
     @pytest.mark.asyncio
-    async def test_fetch_single_symbol_success(
-        self, yfinance_client_fixture: YFinanceClient, mock_yfinance_ticker
-    ):
+    async def test_fetch_single_symbol_success(self, yfinance_client_fixture: YFinanceClient, mock_yfinance_ticker):
         mock_ticker_constructor, mock_ticker_instance = mock_yfinance_ticker
         symbol = "AAPL"
         start_date = "2023-01-02"  # Monday
@@ -88,9 +82,7 @@ class TestYFinanceClientFetchData:
         mock_df_from_yf = create_sample_stock_data_for_test(start_date, end_date)
         mock_ticker_instance.history.return_value = mock_df_from_yf.copy()
 
-        result_df = await yfinance_client_fixture.fetch_data(
-            symbol=symbol, start_date=start_date, end_date=end_date
-        )
+        result_df = await yfinance_client_fixture.fetch_data(symbol=symbol, start_date=start_date, end_date=end_date)
 
         mock_ticker_constructor.assert_called_once_with(symbol)
         mock_ticker_instance.history.assert_called_once_with(
@@ -129,9 +121,7 @@ class TestYFinanceClientFetchData:
         symbol = "MSFT"
         period = "5d"
         # 當使用 period 時，yfinance 會自動計算 start/end，所以我們的 mock 數據日期不那麼重要
-        mock_df_from_yf = create_sample_stock_data_for_test(
-            "2023-01-02", "2023-01-06"
-        )  # 5 business days
+        mock_df_from_yf = create_sample_stock_data_for_test("2023-01-02", "2023-01-06")  # 5 business days
         mock_ticker_instance.history.return_value = mock_df_from_yf.copy()
 
         result_df = await yfinance_client_fixture.fetch_data(symbol=symbol, period=period)
@@ -153,9 +143,7 @@ class TestYFinanceClientFetchData:
         self, yfinance_client_fixture: YFinanceClient, mock_yfinance_ticker
     ):
         _, mock_ticker_instance = mock_yfinance_ticker
-        mock_ticker_instance.history.return_value = (
-            pd.DataFrame()
-        )  # yf.Ticker().history() 返回空 DataFrame
+        mock_ticker_instance.history.return_value = pd.DataFrame()  # yf.Ticker().history() 返回空 DataFrame
 
         result_df = await yfinance_client_fixture.fetch_data(
             symbol="EMPTY", start_date="2023-01-01", end_date="2023-01-01"
@@ -175,9 +163,7 @@ class TestYFinanceClientFetchData:
         assert result_df.empty  # 錯誤應被捕獲並返回空 DataFrame
 
     @pytest.mark.asyncio
-    async def test_fetch_data_missing_dates_or_period_raises_value_error(
-        self, yfinance_client_fixture: YFinanceClient
-    ):
+    async def test_fetch_data_missing_dates_or_period_raises_value_error(self, yfinance_client_fixture: YFinanceClient):
         with pytest.raises(
             ValueError,
             match="必須提供 'period' 或 'start_date' 與 'end_date' 其中之一。",
@@ -188,9 +174,7 @@ class TestYFinanceClientFetchData:
             ValueError,
             match="必須提供 'period' 或 'start_date' 與 'end_date' 其中之一。",
         ):
-            await yfinance_client_fixture.fetch_data(
-                symbol="AAPL", start_date="2023-01-01"
-            )  # 缺少 end_date
+            await yfinance_client_fixture.fetch_data(symbol="AAPL", start_date="2023-01-01")  # 缺少 end_date
 
     @pytest.mark.asyncio
     async def test_fetch_data_handles_datetime_column(
@@ -200,31 +184,23 @@ class TestYFinanceClientFetchData:
         _, mock_ticker_instance = mock_yfinance_ticker
         symbol = "SPY"
         # 創建一個帶 'Datetime' 索引的 mock DataFrame
-        dates = pd.to_datetime(
-            pd.date_range(start="2023-01-02 09:30:00", periods=2, freq="1min")
-        )
+        dates = pd.to_datetime(pd.date_range(start="2023-01-02 09:30:00", periods=2, freq="1min"))
         mock_data = pd.DataFrame({"Open": [100, 101]}, index=dates)
         mock_data.index.name = "Datetime"  # yfinance 對 intraday 可能用 'Datetime'
         mock_ticker_instance.history.return_value = mock_data.copy()
 
-        result_df = await yfinance_client_fixture.fetch_data(
-            symbol=symbol, period="1d", interval="1m"
-        )
+        result_df = await yfinance_client_fixture.fetch_data(symbol=symbol, period="1d", interval="1m")
 
         assert "date" in result_df.columns
         assert "Datetime" not in result_df.columns
         assert result_df["date"].iloc[0] == pd.Timestamp("2023-01-02 09:30:00")
 
     @pytest.mark.asyncio
-    async def test_fetch_data_timezone_handling(
-        self, yfinance_client_fixture: YFinanceClient, mock_yfinance_ticker
-    ):
+    async def test_fetch_data_timezone_handling(self, yfinance_client_fixture: YFinanceClient, mock_yfinance_ticker):
         _, mock_ticker_instance = mock_yfinance_ticker
         symbol = "MSFT"
         # 創建帶時區的數據
-        mock_df_tz = create_sample_stock_data_for_test(
-            "2023-01-02", "2023-01-02", tz_info="US/Eastern"
-        )
+        mock_df_tz = create_sample_stock_data_for_test("2023-01-02", "2023-01-02", tz_info="US/Eastern")
         mock_ticker_instance.history.return_value = mock_df_tz.copy()
 
         result_df = await yfinance_client_fixture.fetch_data(
@@ -242,9 +218,7 @@ class TestYFinanceClientFetchMultipleSymbolsData:
 
     @pytest.mark.asyncio
     @patch.object(YFinanceClient, "fetch_data")  # Mock YFinanceClient.fetch_data
-    async def test_fetch_multiple_success(
-        self, mock_single_fetch, yfinance_client_fixture: YFinanceClient
-    ):
+    async def test_fetch_multiple_success(self, mock_single_fetch, yfinance_client_fixture: YFinanceClient):
         symbols = ["AAPL", "MSFT"]
         df_aapl = pd.DataFrame({"symbol": ["AAPL"], "Close": [150]})
         df_msft = pd.DataFrame({"symbol": ["MSFT"], "Close": [300]})
@@ -265,18 +239,12 @@ class TestYFinanceClientFetchMultipleSymbolsData:
         expected_df = pd.concat([df_aapl, df_msft], ignore_index=True)
         assert_frame_equal(result_df, expected_df)
         assert mock_single_fetch.call_count == 2
-        mock_single_fetch.assert_any_call(
-            symbol="AAPL", start_date="2023-01-01", end_date="2023-01-01"
-        )
-        mock_single_fetch.assert_any_call(
-            symbol="MSFT", start_date="2023-01-01", end_date="2023-01-01"
-        )
+        mock_single_fetch.assert_any_call(symbol="AAPL", start_date="2023-01-01", end_date="2023-01-01")
+        mock_single_fetch.assert_any_call(symbol="MSFT", start_date="2023-01-01", end_date="2023-01-01")
 
     @pytest.mark.asyncio
     @patch.object(YFinanceClient, "fetch_data")
-    async def test_fetch_multiple_one_symbol_fails(
-        self, mock_single_fetch, yfinance_client_fixture: YFinanceClient
-    ):
+    async def test_fetch_multiple_one_symbol_fails(self, mock_single_fetch, yfinance_client_fixture: YFinanceClient):
         symbols = ["GOOG", "FAIL", "AMZN"]
         df_goog = pd.DataFrame({"symbol": ["GOOG"], "Close": [2000]})
         df_amzn = pd.DataFrame({"symbol": ["AMZN"], "Close": [100]})
@@ -285,9 +253,7 @@ class TestYFinanceClientFetchMultipleSymbolsData:
             if symbol == "GOOG":
                 return df_goog
             if symbol == "FAIL":
-                raise Exception(
-                    "Simulated error for FAIL symbol"
-                )  # fetch_data 內部會捕獲並返回空 DF
+                raise Exception("Simulated error for FAIL symbol")  # fetch_data 內部會捕獲並返回空 DF
             if symbol == "AMZN":
                 return df_amzn
             return pd.DataFrame()
@@ -304,28 +270,20 @@ class TestYFinanceClientFetchMultipleSymbolsData:
 
         mock_single_fetch.side_effect = side_effect_for_fetch_adjusted
 
-        result_df = await yfinance_client_fixture.fetch_multiple_symbols_data(
-            symbols=symbols, period="1d"
-        )
+        result_df = await yfinance_client_fixture.fetch_multiple_symbols_data(symbols=symbols, period="1d")
 
         expected_df = pd.concat([df_goog, df_amzn], ignore_index=True)
         assert_frame_equal(result_df, expected_df)
         assert mock_single_fetch.call_count == 3  # 每個都會嘗試
 
     @pytest.mark.asyncio
-    async def test_fetch_multiple_empty_symbol_list(
-        self, yfinance_client_fixture: YFinanceClient
-    ):
+    async def test_fetch_multiple_empty_symbol_list(self, yfinance_client_fixture: YFinanceClient):
         result_df = await yfinance_client_fixture.fetch_multiple_symbols_data(symbols=[])
         assert result_df.empty
 
     @pytest.mark.asyncio
-    async def test_fetch_multiple_invalid_symbols_type(
-        self, yfinance_client_fixture: YFinanceClient
-    ):
-        result_df = await yfinance_client_fixture.fetch_multiple_symbols_data(
-            symbols="NOTALIST"
-        )  # type: ignore
+    async def test_fetch_multiple_invalid_symbols_type(self, yfinance_client_fixture: YFinanceClient):
+        result_df = await yfinance_client_fixture.fetch_multiple_symbols_data(symbols="NOTALIST")  # type: ignore
         assert result_df.empty
 
 

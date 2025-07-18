@@ -6,9 +6,9 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import requests
-
-from .base import BaseAPIClient
 from prometheus.core.logging.log_manager import LogManager
+
+from .base import BaseClient
 
 logger = LogManager.get_instance().get_logger("FMPClient")
 
@@ -19,7 +19,7 @@ logger = LogManager.get_instance().get_logger("FMPClient")
 FMP_API_BASE_URL_NO_VERSION = "https://financialmodelingprep.com/api"
 
 
-class FMPClient(BaseAPIClient):
+class FMPClient(BaseClient):
     """
     Financial Modeling Prep (FMP) API 客戶端。
     用於獲取全球市場（尤其是美股）的財經數據，如歷史價格、公司財報等。
@@ -34,19 +34,15 @@ class FMPClient(BaseAPIClient):
             default_api_version (str): 預設使用的 API 版本 (例如 "v3", "v4")。
                                        實際請求時，端點路徑應包含版本號。
         """
-        fmp_api_key = api_key or os.getenv("FMP_API_KEY")
-        if not fmp_api_key:
-            raise ValueError(
-                "FMP API key 未設定。請設定 FMP_API_KEY 環境變數或在初始化時傳入 api_key。"
-            )
-
-        super().__init__(api_key=fmp_api_key, base_url=FMP_API_BASE_URL_NO_VERSION)
+        self.api_key = api_key or os.getenv("FMP_API_KEY")
+        if not self.api_key:
+            raise ValueError("FMP API key 未設定。請設定 FMP_API_KEY 環境變數或在初始化時傳入 api_key。")
+        self.base_url = FMP_API_BASE_URL_NO_VERSION
+        self._session = requests.Session()
         self.default_api_version = default_api_version
         logger.info(f"FMPClient 初始化完成，預設 API 版本 '{self.default_api_version}'。")
 
-    def _prepare_params(
-        self, params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    def _prepare_params(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         準備請求參數，特別是添加 FMP 所需的 'apikey'。
         """
@@ -80,9 +76,7 @@ class FMPClient(BaseAPIClient):
         """
         data_type = kwargs.pop("data_type", None)
         if not data_type:
-            raise ValueError(
-                "必須在 kwargs 中提供 'data_type' 參數 (例如 'historical_price', 'income_statement')。"
-            )
+            raise ValueError("必須在 kwargs 中提供 'data_type' 參數 (例如 'historical_price', 'income_statement')。")
 
         api_version = kwargs.pop("api_version", self.default_api_version)
         params: Dict[str, Any] = {}
@@ -114,12 +108,13 @@ class FMPClient(BaseAPIClient):
 
         final_params = self._prepare_params(params)
 
-        logger.debug(f"正在獲取 '{data_type}' 數據，代碼: {symbol}, Endpoint: {endpoint_path_template}, Params: {params}")
+        logger.debug(
+            f"正在獲取 '{data_type}' 數據，代碼: {symbol}, Endpoint: {endpoint_path_template}, Params: {params}"
+        )
 
         try:
-            response = super()._perform_request(
-                endpoint=endpoint_path_template, params=final_params, method="GET"
-            )
+            response = self._session.get(f"{self.base_url}/{endpoint_path_template}", params=final_params)
+            response.raise_for_status()
             json_response = response.json()
 
             if isinstance(json_response, dict) and "Error Message" in json_response:
@@ -139,7 +134,9 @@ class FMPClient(BaseAPIClient):
                         found_key = True
                         break
                 if not found_key and data_type not in ["historical_price"]:
-                    logger.warning(f"FMP API 返回了一個字典，但未在預期鍵下找到數據列表。Endpoint: {endpoint_path_template}")
+                    logger.warning(
+                        f"FMP API 返回了一個字典，但未在預期鍵下找到數據列表。Endpoint: {endpoint_path_template}"
+                    )
                     return pd.DataFrame()
 
             if data_list is None:
@@ -193,9 +190,7 @@ if __name__ == "__main__":
             print(f"成功獲取 AAPL 歷史價格數據 (共 {len(aapl_prices)} 筆):")
             print(aapl_prices.head())
         else:
-            print(
-                "獲取 AAPL 歷史價格數據返回空 DataFrame (請檢查 API Key 權限、日期範圍或日誌中的錯誤)。"
-            )
+            print("獲取 AAPL 歷史價格數據返回空 DataFrame (請檢查 API Key 權限、日期範圍或日誌中的錯誤)。")
 
         # 測試獲取財報數據 (v3 income-statement)
         print("\n測試獲取 MSFT 季度損益表 (最近1期, v3)...")
@@ -221,13 +216,9 @@ if __name__ == "__main__":
             to_date="2023-01-05",
         )
         if non_existent_prices.empty:
-            print(
-                "獲取不存在股票價格數據返回空 DataFrame (符合預期，或 API 返回錯誤)。"
-            )
+            print("獲取不存在股票價格數據返回空 DataFrame (符合預期，或 API 返回錯誤)。")
         else:
-            print(
-                f"獲取不存在股票價格數據返回了非預期的數據: {non_existent_prices.head()}"
-            )
+            print(f"獲取不存在股票價格數據返回了非預期的數據: {non_existent_prices.head()}")
 
         # 測試無效 data_type
         try:

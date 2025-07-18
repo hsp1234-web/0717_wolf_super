@@ -39,9 +39,7 @@ def test_full_data_pipeline_run_without_errors():
 
     # 1. 定義我們的ETL步驟實例
     # 使用特定的數據庫名稱 "pipeline_test_loader.duckdb"
-    tick_loader = TaifexTickLoaderStep(
-        db_path=pipeline_loader_db_path, table_name="pipeline_test_ticks"
-    )
+    tick_loader = TaifexTickLoaderStep(db_path=pipeline_loader_db_path, table_name="pipeline_test_ticks")
 
     # TimeAggregatorStep 接收 aggregation_level
     time_aggregator = TimeAggregatorStep(aggregation_level="1Min")

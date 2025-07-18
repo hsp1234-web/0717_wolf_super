@@ -17,9 +17,7 @@ class TimeAggregatorStep(BaseETLStep):
     一個 ETL 步驟，用於將 Tick 數據聚合為指定時間間隔的 OHLCV 數據。
     """
 
-    def __init__(
-        self, aggregation_level: str = "1Min", db_writer_step: BaseETLStep | None = None
-    ):
+    def __init__(self, aggregation_level: str = "1Min", db_writer_step: BaseETLStep | None = None):
         """
         初始化 TimeAggregatorStep。
 
@@ -35,17 +33,11 @@ class TimeAggregatorStep(BaseETLStep):
         if "Min" in aggregation_level:
             self.aggregation_level_pd = aggregation_level.replace("Min", "min")
         elif "H" in aggregation_level:  # For hours
-            self.aggregation_level_pd = aggregation_level.replace(
-                "H", "h"
-            )  # Pandas uses lowercase 'h'
+            self.aggregation_level_pd = aggregation_level.replace("H", "h")  # Pandas uses lowercase 'h'
         else:  # Add more rules or a default if needed
-            self.aggregation_level_pd = (
-                aggregation_level  # Use as is if no specific replacement rule
-            )
+            self.aggregation_level_pd = aggregation_level  # Use as is if no specific replacement rule
 
-        self.db_writer_step = (
-            db_writer_step  # Not used in current execute, but for future design
-        )
+        self.db_writer_step = db_writer_step  # Not used in current execute, but for future design
         self.logger.info(
             f"TimeAggregatorStep initialized for aggregation level: {aggregation_level} (Pandas rule: {self.aggregation_level_pd})"
         )
@@ -65,9 +57,7 @@ class TimeAggregatorStep(BaseETLStep):
             如果輸入數據為 None 或為空，則返回 None 或空 DataFrame。
         """
         if data is None or data.empty:
-            self.logger.warning(
-                "Input data is None or empty. TimeAggregatorStep cannot proceed."
-            )
+            self.logger.warning("Input data is None or empty. TimeAggregatorStep cannot proceed.")
             return pd.DataFrame(
                 columns=[
                     "timestamp",
@@ -85,46 +75,29 @@ class TimeAggregatorStep(BaseETLStep):
         expected_columns = ["timestamp", "price", "volume", "instrument"]
         if not all(col in data.columns for col in expected_columns):
             missing_cols = [col for col in expected_columns if col not in data.columns]
-            self.logger.error(
-                f"Input DataFrame is missing required columns: {missing_cols}"
-            )
-            raise ValueError(
-                f"Input DataFrame for TimeAggregatorStep is missing columns: {missing_cols}"
-            )
+            self.logger.error(f"Input DataFrame is missing required columns: {missing_cols}")
+            raise ValueError(f"Input DataFrame for TimeAggregatorStep is missing columns: {missing_cols}")
 
         if not pd.api.types.is_datetime64_any_dtype(data["timestamp"]):
-            self.logger.info(
-                "Attempting to convert 'timestamp' column to datetime objects."
-            )
+            self.logger.info("Attempting to convert 'timestamp' column to datetime objects.")
             try:
                 data["timestamp"] = pd.to_datetime(data["timestamp"])
-                self.logger.info(
-                    "Successfully converted 'timestamp' column to datetime objects."
-                )
+                self.logger.info("Successfully converted 'timestamp' column to datetime objects.")
             except Exception as e:
                 self.logger.error(
                     f"Failed to convert 'timestamp' column to datetime: {e}",
                     exc_info=True,
                 )
-                raise TypeError(
-                    "Input DataFrame 'timestamp' column must be datetime-like or convertible to datetime."
-                )
+                raise TypeError("Input DataFrame 'timestamp' column must be datetime-like or convertible to datetime.")
 
         ticks_df = data.copy()
 
-        if (
-            not isinstance(ticks_df.index, pd.DatetimeIndex)
-            or ticks_df.index.name != "timestamp"
-        ):
+        if not isinstance(ticks_df.index, pd.DatetimeIndex) or ticks_df.index.name != "timestamp":
             if "timestamp" in ticks_df.columns:
                 ticks_df = ticks_df.set_index("timestamp")
             else:
-                self.logger.error(
-                    "Critical: 'timestamp' column not found for setting index after initial checks."
-                )
-                raise ValueError(
-                    "Cannot set 'timestamp' as index as it's not available."
-                )
+                self.logger.error("Critical: 'timestamp' column not found for setting index after initial checks.")
+                raise ValueError("Cannot set 'timestamp' as index as it's not available.")
 
         ohlcv_list = []
         if "instrument" not in ticks_df.columns:
@@ -141,9 +114,7 @@ class TimeAggregatorStep(BaseETLStep):
             try:
                 # Ensure the index is sorted for resampling to work correctly and avoid UserWarning
                 group_df_sorted = group_df.sort_index()
-                resampled_group = group_df_sorted.resample(
-                    self.aggregation_level_pd
-                ).agg(agg_rules)
+                resampled_group = group_df_sorted.resample(self.aggregation_level_pd).agg(agg_rules)
             except Exception as e:
                 self.logger.error(
                     f"Error during resampling for instrument {instrument} with rule '{self.aggregation_level_pd}': {e}",
@@ -157,9 +128,7 @@ class TimeAggregatorStep(BaseETLStep):
                 )
                 continue
 
-            resampled_group.columns = [
-                "_".join(col).strip() for col in resampled_group.columns.values
-            ]
+            resampled_group.columns = ["_".join(col).strip() for col in resampled_group.columns.values]
 
             resampled_group.rename(
                 columns={
@@ -176,9 +145,7 @@ class TimeAggregatorStep(BaseETLStep):
             ohlcv_list.append(resampled_group)
 
         if not ohlcv_list:
-            self.logger.warning(
-                "Aggregation resulted in an empty list. No OHLCV data produced."
-            )
+            self.logger.warning("Aggregation resulted in an empty list. No OHLCV data produced.")
             return pd.DataFrame(
                 columns=[
                     "timestamp",
@@ -206,19 +173,13 @@ class TimeAggregatorStep(BaseETLStep):
         # Ensure all expected columns are present, fill with NaN if any are missing (e.g. if agg_rules somehow failed for a column)
         for col in output_columns:
             if col not in final_ohlcv_df.columns:
-                final_ohlcv_df[col] = (
-                    pd.NA
-                )  # Or appropriate default like 0 for volume, NaN for prices
+                final_ohlcv_df[col] = pd.NA  # Or appropriate default like 0 for volume, NaN for prices
 
         final_ohlcv_df = final_ohlcv_df[output_columns]
-        final_ohlcv_df.dropna(
-            subset=["open", "high", "low", "close"], how="all", inplace=True
-        )
+        final_ohlcv_df.dropna(subset=["open", "high", "low", "close"], how="all", inplace=True)
         # Convert volume to integer type if it's float after aggregation (e.g. if NaNs were present then filled)
         if "volume" in final_ohlcv_df.columns:
-            final_ohlcv_df["volume"] = (
-                final_ohlcv_df["volume"].fillna(0).astype("int64")
-            )
+            final_ohlcv_df["volume"] = final_ohlcv_df["volume"].fillna(0).astype("int64")
 
         self.logger.info(
             f"TimeAggregatorStep successfully aggregated {len(data)} ticks into {len(final_ohlcv_df)} OHLCV records."

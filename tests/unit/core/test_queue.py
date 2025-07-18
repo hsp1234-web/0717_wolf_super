@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-
 from prometheus.core.queue.sqlite_queue import SQLiteQueue
 
 

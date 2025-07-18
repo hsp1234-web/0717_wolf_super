@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import requests
-
-from .base import BaseAPIClient
 from prometheus.core.logging.log_manager import LogManager
+
+from .base import BaseClient
 
 logger = LogManager.get_instance().get_logger("NYFedClient")
 
@@ -79,7 +79,7 @@ NYFED_DATA_CONFIGS: List[Dict[str, Any]] = [
 ]
 
 
-class NYFedClient(BaseAPIClient):  # 類名從 NYFedAPIClient 改為 NYFedClient
+class NYFedClient(BaseClient):  # 類名從 NYFedAPIClient 改為 NYFedClient
     """
     用於從紐約聯儲 (NY Fed) API 下載和解析一級交易商持有量數據的客戶端。
     此客戶端不使用傳統的 API Key 或 JSON API，而是下載 Excel 檔案。
@@ -94,14 +94,11 @@ class NYFedClient(BaseAPIClient):  # 類名從 NYFedAPIClient 改為 NYFedClient
                 用於指定下載來源和解析方式的配置列表。
                 如果未提供，則使用模組中定義的預設 NYFED_DATA_CONFIGS。
         """
-        # NYFed 不使用 API Key 和標準的 base_url 模式，但仍調用父類構造函數
-        super().__init__(api_key=None, base_url=None)
         self.data_configs = data_configs or NYFED_DATA_CONFIGS
+        self._session = requests.Session()
         logger.info(f"NYFedClient 初始化完成，將使用 {len(self.data_configs)} 個數據源配置。")
 
-    def _download_excel_to_dataframe(
-        self, config: Dict[str, Any]
-    ) -> Optional[pd.DataFrame]:
+    def _download_excel_to_dataframe(self, config: Dict[str, Any]) -> Optional[pd.DataFrame]:
         """
         從指定的 API URL 下載 Excel 檔案並讀取特定 sheet 到 DataFrame。
         """
@@ -117,7 +114,9 @@ class NYFedClient(BaseAPIClient):  # 類名從 NYFedAPIClient 改為 NYFedClient
             excel_file = BytesIO(response.content)
             df = pd.read_excel(excel_file, sheet_name=sheet_name, header=header_row, engine="openpyxl")
 
-            df.columns = [str(col).strip().upper().replace("\n", " ").replace("\r", " ").replace("  ", " ") for col in df.columns]
+            df.columns = [
+                str(col).strip().upper().replace("\n", " ").replace("\r", " ").replace("  ", " ") for col in df.columns
+            ]
 
             logger.debug(f"成功從 {url} 下載並讀取了 {len(df)} 行數據。")
             return df
@@ -131,15 +130,15 @@ class NYFedClient(BaseAPIClient):  # 類名從 NYFedAPIClient 改為 NYFedClient
             logger.error(f"處理來自 {url} 的 Excel 檔案時發生錯誤: {e}", exc_info=True)
             return None
 
-    def _parse_dealer_positions(
-        self, df_raw: pd.DataFrame, config: Dict[str, Any]
-    ) -> pd.DataFrame:
+    def _parse_dealer_positions(self, df_raw: pd.DataFrame, config: Dict[str, Any]) -> pd.DataFrame:
         """
         根據設定解析從單個 Excel 檔案讀取的一級交易商持有量數據。
         """
         date_col_name = config["date_column_names"][0]
         if date_col_name not in df_raw.columns:
-            logger.error(f"在來源 {config['url']} 的數據中找不到預期日期欄位 '{date_col_name}'。可用欄位: {df_raw.columns.tolist()}")
+            logger.error(
+                f"在來源 {config['url']} 的數據中找不到預期日期欄位 '{date_col_name}'。可用欄位: {df_raw.columns.tolist()}"
+            )
             return pd.DataFrame(columns=["Date", "Total_Positions"])
 
         df = df_raw.copy()
@@ -153,7 +152,9 @@ class NYFedClient(BaseAPIClient):  # 類名從 NYFedAPIClient 改為 NYFedClient
 
         missing_core_cols = [col for col in required_core_cols if col not in df.columns]
         if missing_core_cols:
-            logger.error(f"類型 {config['type']} 的數據 ({config['url']}) 缺少核心欄位: {missing_core_cols}。可用欄位: {df.columns.tolist()}")
+            logger.error(
+                f"類型 {config['type']} 的數據 ({config['url']}) 缺少核心欄位: {missing_core_cols}。可用欄位: {df.columns.tolist()}"
+            )
             return pd.DataFrame(columns=["Date", "Total_Positions"])
 
         df[value_col_name] = pd.to_numeric(df[value_col_name], errors="coerce")
@@ -201,19 +202,18 @@ class NYFedClient(BaseAPIClient):  # 類名從 NYFedAPIClient 改為 NYFedClient
         all_data_frames: List[pd.DataFrame] = []
         logger.info(f"開始獲取所有一級交易商數據 (強制刷新={force_refresh})...")
 
-        with self._get_request_context(force_refresh=force_refresh):
-            for config in self.data_configs:
-                logger.debug(f"處理配置: {config.get('notes', config['url'])}")
-                df_raw = self._download_excel_to_dataframe(config)
-                if df_raw is not None and not df_raw.empty:
-                    df_parsed = self._parse_dealer_positions(df_raw, config)
-                    if not df_parsed.empty:
-                        all_data_frames.append(df_parsed)
-                        logger.debug(f"成功解析來自 {config['url']} 的 {len(df_parsed)} 筆有效數據。")
-                    else:
-                        logger.warning(f"解析來自 {config['url']} 的數據後無有效記錄。")
+        for config in self.data_configs:
+            logger.debug(f"處理配置: {config.get('notes', config['url'])}")
+            df_raw = self._download_excel_to_dataframe(config)
+            if df_raw is not None and not df_raw.empty:
+                df_parsed = self._parse_dealer_positions(df_raw, config)
+                if not df_parsed.empty:
+                    all_data_frames.append(df_parsed)
+                    logger.debug(f"成功解析來自 {config['url']} 的 {len(df_parsed)} 筆有效數據。")
                 else:
-                    logger.warning(f"下載或讀取來自 {config['url']} 的數據失敗或原始數據為空。")
+                    logger.warning(f"解析來自 {config['url']} 的數據後無有效記錄。")
+            else:
+                logger.warning(f"下載或讀取來自 {config['url']} 的數據失敗或原始數據為空。")
 
         if not all_data_frames:
             logger.error("未能從任何 NY Fed 來源成功獲取和解析一級交易商數據。")
@@ -255,10 +255,7 @@ if __name__ == "__main__":
             print(f"第三次執行 (強制刷新) 成功，獲取 {len(data_third_run)} 筆數據。")
 
         # 基本的健全性檢查
-        if not (
-            data_first_run.equals(data_second_run)
-            and data_first_run.equals(data_third_run)
-        ):
+        if not (data_first_run.equals(data_second_run) and data_first_run.equals(data_third_run)):
             print("\n警告：不同執行之間的數據不一致，請檢查！")
             print(f"第一次 vs 第二次是否相等: {data_first_run.equals(data_second_run)}")
             print(f"第一次 vs 第三次是否相等: {data_first_run.equals(data_third_run)}")
@@ -266,9 +263,7 @@ if __name__ == "__main__":
             print("\n數據一致性檢查通過。")
 
         if not data_first_run.empty:
-            print(
-                f"\n最終合併的一級交易商持有量數據範例 (共 {len(data_first_run)} 筆):"
-            )
+            print(f"\n最終合併的一級交易商持有量數據範例 (共 {len(data_first_run)} 筆):")
             print("最早的 5 筆數據:")
             print(data_first_run.head())
             print("\n最新的 5 筆數據:")

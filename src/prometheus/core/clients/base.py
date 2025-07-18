@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
+
 import pandas as pd
+
 
 class BaseClient(ABC):
     """所有數據客戶端的抽象基底類別。"""
+
     @abstractmethod
     def fetch_data(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         """

@@ -18,24 +18,18 @@ class TaifexDBClient:
         self.db_connection_string = db_connection_string
         print("TaifexDBClient (佔位符) 已初始化。")
 
-    def get_institutional_positions(
-        self, start_date: str, end_date: str
-    ) -> pd.DataFrame:
+    def get_institutional_positions(self, start_date: str, end_date: str) -> pd.DataFrame:
         """
         獲取三大法人期貨及選擇權籌碼分佈 (佔位符)。
         :param start_date: 開始日期 (YYYY-MM-DD)
         :param end_date: 結束日期 (YYYY-MM-DD)
         :return: 包含籌碼數據的 DataFrame
         """
-        print(
-            f"TaifexDBClient (佔位符): 正在獲取 {start_date} 到 {end_date} 的三大法人數據..."
-        )
+        print(f"TaifexDBClient (佔位符): 正在獲取 {start_date} 到 {end_date} 的三大法人數據...")
         # 返回一個空的 DataFrame 作為佔位符
         return pd.DataFrame()
 
-    def get_futures_ohlcv(
-        self, contract: str, start_date: str, end_date: str
-    ) -> pd.DataFrame:
+    def get_futures_ohlcv(self, contract: str, start_date: str, end_date: str) -> pd.DataFrame:
         """
         獲取指定期貨合約的 OHLCV 數據 (佔位符)。
         :param contract: 合約代碼 (例如 TXF1)
@@ -43,9 +37,7 @@ class TaifexDBClient:
         :param end_date: 結束日期 (YYYY-MM-DD)
         :return: 包含 OHLCV 數據的 DataFrame
         """
-        print(
-            f"TaifexDBClient (佔位符): 正在獲取 {contract} 從 {start_date} 到 {end_date} 的 OHLCV 數據..."
-        )
+        print(f"TaifexDBClient (佔位符): 正在獲取 {contract} 從 {start_date} 到 {end_date} 的 OHLCV 數據...")
         # 返回一個空的 DataFrame 作為佔位符
         return pd.DataFrame()
 

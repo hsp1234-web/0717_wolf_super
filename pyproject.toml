@@ -37,33 +37,22 @@ pandas-datareader = "^0.10.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
-pytest-asyncio = "^0.23.0"
-pytest-mock = "^3.14.0"
-ruff = "^0.4.8"
+httpx = "^0.27.0"
+psutil = "^6.0.0"
+pandas = "^2.2.2"
+matplotlib = "^3.9.0"
+ruff = "^0.5.0"
 deptry = "^0.17.0"
 pytest-timeout = "^2.3.1"
 
-
-# --- 如果不存在則新增，如果存在則更新 [tool.ruff] 和 [tool.ruff.lint] ---
-playwright = "^1.53.0"
 [tool.ruff]
-line-length = 88
-# 告知 Ruff 我們的原始碼目錄
-src = ["src", "tests"]
+line-length = 120
+exclude = ["start_colab.py"]
 
 [tool.ruff.lint]
-# 我們只選擇會導致執行失敗的規則類別
-# E: Pyflakes (語法錯誤)
-# F: Pyflakes (邏輯錯誤，如未定義變數)
-select = ["E", "F"]
-
-# 我們明確忽略所有與風格相關的規則
-# W: Pycodestyle (警告)
-# D: Pydocstyle (文件字串)
-# I: isort (導入排序)
-# E402: Module level import not at top of file
-# E701: Multiple statements on one line (colon)
-ignore = ["W", "D", "I", "E402", "E701", "E501"]
+# 啟用 Pyflakes (F), pycodestyle (E, W), isort (I) 等核心規則
+select = ["E", "W", "F", "I"]
+ignore = ["E501", "E402", "I001"]
 
 [tool.deptry]
 # 將 src 目錄下的 prometheus 模組標記為第一方本地模組
@@ -71,11 +60,11 @@ known_first_party = ["prometheus"]
 # 針對不同規則忽略特定的包或模組
 [tool.deptry.per_rule_ignores]
 # DEP001: 忽略 'apps' 模組的導入，因為它可能是一個動態的命名空間
-DEP001 = ["apps"]
+DEP001 = ["apps", "google", "pyngrok", "IPython"]
 # DEP002: 忽略這些未使用的依賴，它們可能是間接使用或部署時需要
-DEP002 = ["vectorbt", "pybreaker", "openpyxl", "pandas-ta", "setuptools", "gunicorn"]
+DEP002 = ["vectorbt", "pybreaker", "openpyxl", "pandas-ta", "setuptools", "gunicorn", "uvicorn", "fredapi", "psutil", "matplotlib"]
 # DEP003: 忽略對這些傳遞性依賴的直接導入
-DEP003 = ["click", "pydantic", "pytz"]
+DEP003 = ["click", "pydantic", "pytz", "IPython"]
 # DEP004: 忽略在測試代碼中導入 'pytest'
 DEP004 = ["pytest"]
 

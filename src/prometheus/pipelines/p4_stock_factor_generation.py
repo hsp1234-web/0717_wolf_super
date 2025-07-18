@@ -3,18 +3,18 @@
 import logging
 from typing import List
 
-from src.prometheus.core.config import config
 from src.prometheus.core.clients.client_factory import ClientFactory
+from src.prometheus.core.config import config
 from src.prometheus.core.db.db_manager import DBManager
 from src.prometheus.core.engines.stock_factor_engine import StockFactorEngine
 from src.prometheus.core.pipelines.pipeline import Pipeline
+from src.prometheus.core.pipelines.steps.financial_steps import RunStockFactorEngineStep
 from src.prometheus.core.pipelines.steps.loaders import LoadStockDataStep
 from src.prometheus.core.pipelines.steps.savers import SaveToWarehouseStep
-from src.prometheus.core.pipelines.steps.financial_steps import RunStockFactorEngineStep
 from src.prometheus.core.pipelines.steps.splitters import GroupBySymbolStep
 
 # 配置日誌
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -31,6 +31,7 @@ def create_stock_factor_pipeline(symbols: List[str], db_manager: DBManager, clie
     stock_factor_engine = StockFactorEngine(client_factory)
 
     from src.prometheus.core.pipelines.steps.normalize_columns_step import NormalizeColumnsStep
+
     # 定義 Pipeline 的步驟
     steps = [
         LoadStockDataStep(symbols=symbols, client_factory=client_factory),
@@ -45,6 +46,7 @@ def create_stock_factor_pipeline(symbols: List[str], db_manager: DBManager, clie
 
 import asyncio
 
+
 def main():
     """
     主執行函數，設置並運行股票因子生成流程。
@@ -54,10 +56,10 @@ def main():
     # --- 配置區 ---
     # 定義目標股票清單
     # 'AAPL' - 美股, '2330.TW' - 台股
-    target_symbols = ['AAPL', '2330.TW']
+    target_symbols = ["AAPL", "2330.TW"]
 
     # 初始化資料庫管理器
-    db_manager = DBManager(db_path=config.get('database.main_db_path'))
+    db_manager = DBManager(db_path=config.get("database.main_db_path"))
 
     # 初始化客戶端工廠
     client_factory = ClientFactory()

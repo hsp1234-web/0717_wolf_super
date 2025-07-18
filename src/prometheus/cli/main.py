@@ -1,12 +1,14 @@
-import typer
 import os
-from prometheus.entrypoints.query_gateway import start
+
+import typer
+import uvicorn
 from prometheus.core.logging.log_manager import LogManager
 
 app = typer.Typer()
 # 由於 LogManager 不再是單例，我們為 CLI 的主進程創建一個常規的 logger
 log_manager = LogManager(log_file="prometheus_cli.log")
 logger = log_manager.get_logger("Conductor")
+
 
 @app.command(name="dashboard")
 def cli_dashboard(
@@ -15,10 +17,12 @@ def cli_dashboard(
 ):
     """啟動網頁儀表板。"""
     logger.info(f"準備在 http://{host}:{port} 啟動儀表板...")
-    start()
+    uvicorn.run("src.prometheus.entrypoints.query_gateway:app", host=host, port=port, reload=True)
+
 
 data_app = typer.Typer()
 app.add_typer(data_app, name="data")
+
 
 @data_app.command("create-dummy")
 def create_dummy():
@@ -26,6 +30,7 @@ def create_dummy():
     建立一個用於測試的虛構 OHLCV CSV 檔案。
     """
     from pathlib import Path
+
     import numpy as np
     import pandas as pd
 
@@ -33,9 +38,7 @@ def create_dummy():
     DATA_DIR.mkdir(exist_ok=True)
     file_path = DATA_DIR / "ohlcv_data.csv"
 
-    date_range = pd.to_datetime(
-        pd.date_range(start="2022-01-01", periods=1000, freq="D")
-    )
+    date_range = pd.to_datetime(pd.date_range(start="2022-01-01", periods=1000, freq="D"))
 
     open_prices = np.random.uniform(90, 110, size=1000)
 
@@ -56,6 +59,7 @@ def create_dummy():
 
 results_app = typer.Typer()
 app.add_typer(results_app, name="results")
+
 
 @results_app.command("clear")
 def clear_results():
@@ -106,6 +110,7 @@ def show_results():
     從 SQLite 資料庫查詢並顯示回測結果。
     """
     import sqlite3
+
     import pandas as pd
 
     logger.info("正在從 SQLite 資料庫查詢結果...")
@@ -155,9 +160,7 @@ def generate_report(
         # 開始構建 Markdown 報告
         report_content = []
         report_content.append("# **【普羅米修斯之火】系統測試作戰報告**")
-        report_content.append(
-            f"> 報告生成時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        )
+        report_content.append(f"> 報告生成時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
         # 總結區塊
         report_content.append("## **一、 戰況總覽**")
@@ -199,14 +202,10 @@ def generate_report(
                     message = detail.get("message", "無訊息").splitlines()[0]
 
                     report_content.append(f"\n### {count}. {error_type}: {message}")
-                    report_content.append(
-                        f"- **測試位置:** `{class_name}.{test_name}`"
-                    )
+                    report_content.append(f"- **測試位置:** `{class_name}.{test_name}`")
                     report_content.append("- **詳細堆疊追蹤:**")
                     # 檢查 detail.text 是否為 None
-                    stack_trace = (
-                        detail.text.strip() if detail.text else "無堆疊追蹤資訊。"
-                    )
+                    stack_trace = detail.text.strip() if detail.text else "無堆疊追蹤資訊。"
                     report_content.append(f"```\n{stack_trace}\n```")
                     count += 1
 
@@ -233,6 +232,7 @@ def add_tasks(
     """
     import random
     import uuid
+
     from prometheus.core.context import AppContext
 
     with AppContext() as ctx:
@@ -256,6 +256,7 @@ def add_tasks(
 pipelines_app = typer.Typer()
 app.add_typer(pipelines_app, name="pipelines")
 
+
 @pipelines_app.command("run-downloader")
 def run_downloader(
     start_date: str = typer.Option(..., help="下載開始日期 (YYYY-MM-DD)"),
@@ -269,6 +270,7 @@ def run_downloader(
     from collections import Counter
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from datetime import datetime, timedelta
+
     import requests
     from prometheus.core.config import config
 
@@ -279,9 +281,7 @@ def run_downloader(
     tasks = []
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-    date_range = [
-        start_dt + timedelta(days=x) for x in range((end_dt - start_dt).days + 1)
-    ]
+    date_range = [start_dt + timedelta(days=x) for x in range((end_dt - start_dt).days + 1)]
 
     base_url = config.get("data_acquisition.taifex.base_url")
     for current_date in date_range:
@@ -299,10 +299,7 @@ def run_downloader(
     results_counter = Counter()
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         with requests.Session() as session:
-            future_to_task = {
-                executor.submit(execute_download, session, task, output_dir): task
-                for task in tasks
-            }
+            future_to_task = {executor.submit(execute_download, session, task, output_dir): task for task in tasks}
             for future in as_completed(future_to_task):
                 try:
                     status, message = future.result()
@@ -320,6 +317,7 @@ def execute_download(session, task_info, output_dir):
     """執行單一檔案下載任務，包含重試與錯誤處理。"""
     import random
     import time
+
     import requests
     from prometheus.core.config import config
 
@@ -349,11 +347,7 @@ def execute_download(session, task_info, output_dir):
                 else session.get(task_info["url"], headers=headers, timeout=120)
             )
 
-            if (
-                response.status_code == 200
-                and len(response.content) > 100
-                and "查無資料" not in response.text
-            ):
+            if response.status_code == 200 and len(response.content) > 100 and "查無資料" not in response.text:
                 os.makedirs(output_dir, exist_ok=True)
                 with open(file_path, "wb") as f:
                     f.write(response.content)
@@ -425,6 +419,7 @@ def run_explorer(
 def get_header_fingerprint(header_line: str) -> str:
     """對標準化後的標頭計算指紋。"""
     import hashlib
+
     normalized_header = "".join(header_line.lower().split()).replace('"', "")
     return hashlib.sha256(normalized_header.encode("utf-8")).hexdigest()
 
@@ -463,7 +458,9 @@ def run_loader(input_dir, raw_db_path, schema_db_path):
 
     known_fingerprints = schema_registry.get_known_fingerprints()
     if not known_fingerprints:
-        logger.info("Loader: No known fingerprints loaded from schema registry. Only files matching these will be processed.")
+        logger.info(
+            "Loader: No known fingerprints loaded from schema registry. Only files matching these will be processed."
+        )
 
     files_loaded = 0
     if not os.path.exists(input_dir):
@@ -493,11 +490,17 @@ def run_loader(input_dir, raw_db_path, schema_db_path):
                 if fingerprint in known_fingerprints:
                     raw_wh.log_processed_file(file_path, file_bytes_content, fingerprint)
                     files_loaded += 1
-                    logger.info(f"Loader: Loaded {filename} (fingerprint: {fingerprint[:8]}...) as it's a known schema.")
+                    logger.info(
+                        f"Loader: Loaded {filename} (fingerprint: {fingerprint[:8]}...) as it's a known schema."
+                    )
                 else:
-                    logger.info(f"Loader: Skipped {filename} (fingerprint: {fingerprint[:8]}...) as its schema is not in the registry.")
+                    logger.info(
+                        f"Loader: Skipped {filename} (fingerprint: {fingerprint[:8]}...) as its schema is not in the registry."
+                    )
             else:
-                logger.warning(f"Loader: Skipped file {filename} due to content prospecting failure: {result.get('error', 'Unknown error')}")
+                logger.warning(
+                    f"Loader: Skipped file {filename} due to content prospecting failure: {result.get('error', 'Unknown error')}"
+                )
 
         except Exception as e:
             logger.error(f"Loader 處理 {filename} 失敗: {e}", exc_info=True)
@@ -509,6 +512,7 @@ def run_loader(input_dir, raw_db_path, schema_db_path):
 
 def run_transformer(raw_db_path, schema_db_path, analytics_db_path):
     import io
+
     import pandas as pd
     from prometheus.core.db.data_warehouse import AnalyticsDataWarehouse, RawDataWarehouse
     from prometheus.core.db.schema_registry import SchemaRegistry
@@ -530,7 +534,9 @@ def run_transformer(raw_db_path, schema_db_path, analytics_db_path):
     target_daily_futures_fingerprint = get_header_fingerprint(daily_futures_header_str)
 
     if target_daily_futures_fingerprint not in schema_map:
-        logger.warning(f"Transformer: Did not find fingerprint for daily_futures_header '{daily_futures_header_str}' in schema_map. Cannot process daily_futures.")
+        logger.warning(
+            f"Transformer: Did not find fingerprint for daily_futures_header '{daily_futures_header_str}' in schema_map. Cannot process daily_futures."
+        )
     else:
         logger.info(f"Transformer: Target fingerprint for daily_futures is {target_daily_futures_fingerprint[:8]}...")
 
@@ -551,8 +557,14 @@ def run_transformer(raw_db_path, schema_db_path, analytics_db_path):
             df.columns = [str(col).strip().replace('"', "") for col in df.columns]
 
             target_columns_canonical = [
-                "交易日期", "契約代碼", "到期月份(週別)", "開盤價",
-                "最高價", "最低價", "收盤價", "成交量",
+                "交易日期",
+                "契約代碼",
+                "到期月份(週別)",
+                "開盤價",
+                "最高價",
+                "最低價",
+                "收盤價",
+                "成交量",
             ]
 
             df_to_load = pd.DataFrame()
@@ -583,6 +595,7 @@ def run_stock_factors():
     執行第四號生產線：股票因子生成。
     """
     from prometheus.pipelines.p4_stock_factor_generation import main as p4_main
+
     logger.info("--- 啟動 P4：股票因子生成管線 ---")
     p4_main()
     logger.info("--- P4：股票因子生成管線執行完畢 ---")
@@ -594,6 +607,7 @@ def run_crypto_factors():
     執行第五號生產線：加密貨幣因子生成。
     """
     from prometheus.pipelines.p5_crypto_factor_generation import main as p5_main
+
     logger.info("--- 啟動 P5：加密貨幣因子生成管線 ---")
     p5_main()
     logger.info("--- P5：加密貨幣因子生成管線執行完畢 ---")
@@ -605,6 +619,7 @@ def build_feature_store():
     【作戰指令】統一數據倉儲重構：建造特徵倉儲。
     """
     from prometheus.core.db.db_manager import DBManager
+
     # from prometheus.pipelines.p1_factor_generation import p1_factor_generation_pipeline
     # from prometheus.pipelines.p2_index_factor_generation import p2_index_factor_pipeline
     # from prometheus.pipelines.p3_bond_factor_generation import p3_bond_factor_pipeline
@@ -653,6 +668,7 @@ def run_simulation_training(
     執行第六號生產線：因子代理模擬模型訓練。
     """
     from prometheus.pipelines.p6_simulation_training import run_main as p6_run_main
+
     logger.info(f"--- 啟動 P6：因子代理模擬模型訓練管線，目標為 {target_factor} ---")
     p6_run_main(target_factor=target_factor)
     logger.info("--- P6：因子代理模擬模型訓練管線執行完畢 ---")
@@ -661,23 +677,27 @@ def run_simulation_training(
 @pipelines_app.command("run")
 def run_pipeline(
     name: str = typer.Option(..., help="要執行的管線名稱"),
-    ticker: str = typer.Option(None, "--ticker", "-t", help="要處理的資產代號")
+    ticker: str = typer.Option(None, "--ticker", "-t", help="要處理的資產代號"),
 ):
     """
     執行指定的數據管線。
     """
     import asyncio
+
     pipeline_context = {"ticker": ticker} if ticker else {}
     logger.info(f"--- 啟動 {name} 管線，上下文: {pipeline_context} ---")
 
     if name == "p1_factor_generation":
         from prometheus.pipelines.p1_factor_generation import p1_factor_generation_pipeline
+
         asyncio.run(p1_factor_generation_pipeline.run(context=pipeline_context))
     elif name == "p2_index_factor_generation":
         from prometheus.pipelines.p2_index_factor_generation import p2_index_factor_pipeline
+
         asyncio.run(p2_index_factor_pipeline.run(context=pipeline_context))
     elif name == "p3_bond_factor_generation":
         from prometheus.pipelines.p3_bond_factor_generation import p3_bond_factor_pipeline
+
         asyncio.run(p3_bond_factor_pipeline.run(context=pipeline_context))
     else:
         logger.error(f"錯誤：找不到名為 '{name}' 的管線。")
@@ -716,11 +736,12 @@ def run_backfill_cli(
     logger.info("--- 數據回填作業完成 ---")
 
 
+from prometheus.core.db.db_manager import DBManager
 from prometheus.models.strategy_models import Strategy
 from prometheus.services.backtesting_service import BacktestingService
 from prometheus.services.evolution_chamber import EvolutionChamber
 from prometheus.services.strategy_reporter import StrategyReporter
-from prometheus.core.db.db_manager import DBManager
+
 
 @app.command()
 def run_evolution_cycle():
@@ -734,15 +755,15 @@ def run_evolution_cycle():
 
     # 2. 準備演化所需數據
     # 假設因子數據已存在
-    all_factors_df = backtester.db_manager.fetch_table('factors')
+    all_factors_df = backtester.db_manager.fetch_table("factors")
     # 排除非因子欄位
-    available_factors = [col for col in all_factors_df.columns if col not in ['date', 'symbol', 'close']]
+    available_factors = [col for col in all_factors_df.columns if col not in ["date", "symbol", "close"]]
 
     if not available_factors:
         print("錯誤：數據庫中找不到可用的因子。請先執行 build-feature-store。")
         return
 
-    target_asset_for_evolution = 'AAPL' # 選擇一個數據庫中存在的資產
+    target_asset_for_evolution = "AAPL"  # 選擇一個數據庫中存在的資產
     print(f"INFO: 將使用 '{target_asset_for_evolution}' 作為本次演化的目標資產。")
     chamber = EvolutionChamber(backtester, available_factors, target_asset=target_asset_for_evolution)
 
@@ -760,7 +781,7 @@ def run_evolution_cycle():
     final_strategy = Strategy(
         factors=best_factors,
         weights={factor: 1.0 / len(best_factors) for factor in best_factors},
-        target_asset='AAPL' # 修正：明確指定一個存在的資產
+        target_asset="AAPL",  # 修正：明確指定一個存在的資產
     )
     final_report = backtester.run(final_strategy)
 
@@ -769,6 +790,7 @@ def run_evolution_cycle():
     reporter.generate_report(hof, final_report, available_factors)
 
     print("--- 【演化室行動】作戰週期結束 ---")
+
 
 if __name__ == "__main__":
     app()

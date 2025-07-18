@@ -1,6 +1,5 @@
 # tests/integration/pipelines/test_example_flow.py
 import pandas as pd
-
 from prometheus.core.pipelines.base_step import BaseETLStep  # 修正導入
 from prometheus.core.pipelines.pipeline import DataPipeline
 
@@ -39,13 +38,12 @@ def test_full_etl_flow_replaces_old_pipeline():
     ]
 
     import asyncio
+
     # 2. 實例化並執行管線
     pipeline = DataPipeline(steps=pipeline_steps)
     result = asyncio.run(pipeline.run())
 
     # 3. 驗證最終結果
     expected_result = 21
-    assert (
-        result == expected_result
-    ), f"Pipeline result '{result}' did not match expected '{expected_result}'"
+    assert result == expected_result, f"Pipeline result '{result}' did not match expected '{expected_result}'"
     print(f"--- [Success] Pipeline final result is {result}, as expected. ---")

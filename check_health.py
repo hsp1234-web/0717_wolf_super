@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-import requests
-import time
 import sys
+import time
+
+import requests
 
 URL = "http://127.0.0.1:8000/health"
 ATTEMPTS = 5

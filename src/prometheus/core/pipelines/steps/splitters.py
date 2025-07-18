@@ -1,8 +1,9 @@
 # src/prometheus/core/pipelines/steps/splitters.py
 
-import pandas as pd
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
+
+import pandas as pd
 
 from src.prometheus.core.pipelines.base_step import BaseStep
 
@@ -24,10 +25,10 @@ class GroupBySymbolStep(BaseStep):
         """
         logger.info("正在執行 GroupBySymbolStep...")
 
-        if 'symbol' not in data.columns:
+        if "symbol" not in data.columns:
             raise ValueError("輸入的 DataFrame 必須包含 'symbol' 欄位。")
 
-        grouped = data.groupby('symbol')
+        grouped = data.groupby("symbol")
 
         logger.info(f"成功將數據分為 {len(grouped)} 組。")
         for _, group in grouped:

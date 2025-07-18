@@ -1,12 +1,13 @@
-from prometheus.core.pipelines.base_step import BaseETLStep
-from prometheus.core.analysis.stress_index import StressIndexCalculator
-import pandas as pd
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
-from src.prometheus.core.pipelines.base_step import BaseStep
-from src.prometheus.core.engines.stock_factor_engine import StockFactorEngine
+import pandas as pd
+from prometheus.core.analysis.stress_index import StressIndexCalculator
+from prometheus.core.pipelines.base_step import BaseETLStep
+
 from src.prometheus.core.engines.crypto_factor_engine import CryptoFactorEngine
+from src.prometheus.core.engines.stock_factor_engine import StockFactorEngine
+from src.prometheus.core.pipelines.base_step import BaseStep
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +46,7 @@ class CalculateStressIndexStep(BaseETLStep):
                 print("--- [Failed] Stress index calculation returned empty data. ---")
                 return {"status": "failed", "reason": "Empty data from calculator"}
         except Exception as e:
-            print(
-                f"--- [Error] An error occurred during stress index calculation: {e} ---"
-            )
+            print(f"--- [Error] An error occurred during stress index calculation: {e} ---")
             return {"status": "error", "reason": str(e)}
         finally:
             if calculator:

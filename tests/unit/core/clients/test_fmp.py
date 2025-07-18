@@ -86,9 +86,7 @@ class TestFMPClientFetchData:
         mock_response_obj.status_code = 200
         mock_response_obj.json.return_value = raw_json_response
 
-        with patch.object(
-            fmp_client_fixture._session, "get", return_value=mock_response_obj
-        ) as mock_actual_get:
+        with patch.object(fmp_client_fixture._session, "get", return_value=mock_response_obj) as mock_actual_get:
             result_df = fmp_client_fixture.fetch_data(
                 symbol=symbol,
                 data_type="historical_price",
@@ -104,9 +102,7 @@ class TestFMPClientFetchData:
                 "apikey": TEST_FMP_API_KEY,
             }
             expected_url = f"{fmp_client_fixture.base_url}/{expected_endpoint}"
-            mock_actual_get.assert_called_once_with(
-                expected_url, params=expected_params_to_parent
-            )
+            mock_actual_get.assert_called_once_with(expected_url, params=expected_params_to_parent)
 
             expected_df_data = [
                 {"date": pd.to_datetime("2023-01-01"), "open": 100, "close": 100},
@@ -131,9 +127,7 @@ class TestFMPClientFetchData:
         mock_response_obj.status_code = 200
         mock_response_obj.json.return_value = raw_json_response_list
 
-        with patch.object(
-            fmp_client_fixture._session, "get", return_value=mock_response_obj
-        ) as mock_actual_get:
+        with patch.object(fmp_client_fixture._session, "get", return_value=mock_response_obj) as mock_actual_get:
             result_df = fmp_client_fixture.fetch_data(
                 symbol=symbol,
                 data_type="income-statement",
@@ -149,9 +143,7 @@ class TestFMPClientFetchData:
                 "apikey": TEST_FMP_API_KEY,
             }
             expected_url = f"{fmp_client_fixture.base_url}/{expected_endpoint}"
-            mock_actual_get.assert_called_once_with(
-                expected_url, params=expected_params_to_parent
-            )
+            mock_actual_get.assert_called_once_with(expected_url, params=expected_params_to_parent)
 
             expected_df_data = [
                 {
@@ -172,57 +164,35 @@ class TestFMPClientFetchData:
                 check_like=True,
             )
 
-    def test_fetch_data_unsupported_type_raises_value_error(
-        self, fmp_client_fixture: FMPClient
-    ):
+    def test_fetch_data_unsupported_type_raises_value_error(self, fmp_client_fixture: FMPClient):
         """測試不支援的 data_type 時引發 ValueError。"""
-        with pytest.raises(
-            ValueError, match="不支援的 data_type: invalid_financial_product"
-        ):
-            fmp_client_fixture.fetch_data(
-                symbol="AAPL", data_type="invalid_financial_product"
-            )
+        with pytest.raises(ValueError, match="不支援的 data_type: invalid_financial_product"):
+            fmp_client_fixture.fetch_data(symbol="AAPL", data_type="invalid_financial_product")
 
-    def test_fetch_data_missing_data_type_raises_value_error(
-        self, fmp_client_fixture: FMPClient
-    ):
+    def test_fetch_data_missing_data_type_raises_value_error(self, fmp_client_fixture: FMPClient):
         """測試未提供 data_type 時引發 ValueError。"""
         with pytest.raises(ValueError, match="必須在 kwargs 中提供 'data_type' 參數"):
             fmp_client_fixture.fetch_data(symbol="AAPL")
 
-    def test_fetch_data_api_returns_error_message_in_json(
-        self, fmp_client_fixture: FMPClient
-    ):
+    def test_fetch_data_api_returns_error_message_in_json(self, fmp_client_fixture: FMPClient):
         """測試 FMP API 在 200 OK 回應中返回業務錯誤訊息。"""
         mock_response_obj = MagicMock(spec=requests.Response)
         mock_response_obj.status_code = 200
-        mock_response_obj.json.return_value = {
-            "Error Message": "Invalid symbol or API key."
-        }
-        with patch.object(
-            fmp_client_fixture._session, "get", return_value=mock_response_obj
-        ) as mock_actual_get:
-            result_df = fmp_client_fixture.fetch_data(
-                symbol="ERROR", data_type="historical_price"
-            )
+        mock_response_obj.json.return_value = {"Error Message": "Invalid symbol or API key."}
+        with patch.object(fmp_client_fixture._session, "get", return_value=mock_response_obj) as mock_actual_get:
+            result_df = fmp_client_fixture.fetch_data(symbol="ERROR", data_type="historical_price")
             assert result_df.empty
             mock_actual_get.assert_called_once()
 
-    def test_fetch_data_http_error_from_session_get(
-        self, fmp_client_fixture: FMPClient
-    ):
+    def test_fetch_data_http_error_from_session_get(self, fmp_client_fixture: FMPClient):
         """測試 requests.Session.get 拋出 HTTPError 時的處理。"""
         mock_response_obj = MagicMock(spec=requests.Response)
         mock_response_obj.status_code = 401
         mock_response_obj.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "Simulated HTTP 401 Error", response=mock_response_obj
         )
-        with patch.object(
-            fmp_client_fixture._session, "get", return_value=mock_response_obj
-        ) as mock_actual_get:
-            result_df = fmp_client_fixture.fetch_data(
-                symbol="FAIL", data_type="income-statement"
-            )
+        with patch.object(fmp_client_fixture._session, "get", return_value=mock_response_obj) as mock_actual_get:
+            result_df = fmp_client_fixture.fetch_data(symbol="FAIL", data_type="income-statement")
             assert result_df.empty
             mock_actual_get.assert_called_once()
             mock_response_obj.raise_for_status.assert_called_once()
@@ -232,12 +202,8 @@ class TestFMPClientFetchData:
         mock_response_obj = MagicMock(spec=requests.Response)
         mock_response_obj.status_code = 200
         mock_response_obj.json.return_value = []
-        with patch.object(
-            fmp_client_fixture._session, "get", return_value=mock_response_obj
-        ) as mock_actual_get:
-            result_df = fmp_client_fixture.fetch_data(
-                symbol="NODATA", data_type="income-statement"
-            )
+        with patch.object(fmp_client_fixture._session, "get", return_value=mock_response_obj) as mock_actual_get:
+            result_df = fmp_client_fixture.fetch_data(symbol="NODATA", data_type="income-statement")
             assert result_df.empty
             mock_actual_get.assert_called_once()
 
@@ -247,9 +213,7 @@ class TestFMPClientFetchData:
             mock_response_obj_hist.json.return_value = {"historical": []}
             mock_actual_get.return_value = mock_response_obj_hist
 
-            result_df_hist = fmp_client_fixture.fetch_data(
-                symbol="NODATA_HIST", data_type="historical_price"
-            )
+            result_df_hist = fmp_client_fixture.fetch_data(symbol="NODATA_HIST", data_type="historical_price")
             assert result_df_hist.empty
             mock_actual_get.assert_called_once()
 
@@ -261,16 +225,12 @@ class TestFMPClientFetchData:
         mock_response_obj.status_code = 200
         mock_response_obj.json.return_value = []
 
-        with patch.object(
-            fmp_client_fixture._session, "get", return_value=mock_response_obj
-        ) as mock_actual_get:
+        with patch.object(fmp_client_fixture._session, "get", return_value=mock_response_obj) as mock_actual_get:
             fmp_client_fixture.fetch_data(symbol="AAPL", data_type="income-statement")
 
             assert mock_actual_get.call_args is not None, "session.get was not called"
             called_url = mock_actual_get.call_args[0][0]
-            assert (
-                f"{fmp_client_fixture.base_url}/v4/income-statement/AAPL" in called_url
-            )
+            assert f"{fmp_client_fixture.base_url}/v4/income-statement/AAPL" in called_url
 
     def test_fetch_data_limit_param_is_string(self, fmp_client_fixture: FMPClient):
         """測試 limit 參數是否被正確轉換為字串。"""
@@ -278,12 +238,8 @@ class TestFMPClientFetchData:
         mock_response_obj.status_code = 200
         mock_response_obj.json.return_value = []
 
-        with patch.object(
-            fmp_client_fixture._session, "get", return_value=mock_response_obj
-        ) as mock_actual_get:
-            fmp_client_fixture.fetch_data(
-                symbol="MSFT", data_type="income-statement", limit=5
-            )
+        with patch.object(fmp_client_fixture._session, "get", return_value=mock_response_obj) as mock_actual_get:
+            fmp_client_fixture.fetch_data(symbol="MSFT", data_type="income-statement", limit=5)
 
             assert mock_actual_get.call_args is not None, "session.get was not called"
             called_kwargs = mock_actual_get.call_args[1]

@@ -7,9 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
-PROJECT_ROOT_FROM_TEST_P0 = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..")
-)
+PROJECT_ROOT_FROM_TEST_P0 = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT_FROM_TEST_P0 not in sys.path:
     sys.path.insert(0, PROJECT_ROOT_FROM_TEST_P0)
 
@@ -165,13 +163,9 @@ def test_execute_download_request_exception(mock_session, tmp_path):
     測試 requests.exceptions.RequestException 的情境 (重試後依然失敗)。
     """
     # Simulate a requests.exceptions.RequestException on post/get
-    mock_session.post.side_effect = requests.exceptions.RequestException(
-        "Test network error"
-    )
+    mock_session.post.side_effect = requests.exceptions.RequestException("Test network error")
     # Also mock get if it could be called
-    mock_session.get.side_effect = requests.exceptions.RequestException(
-        "Test network error"
-    )
+    mock_session.get.side_effect = requests.exceptions.RequestException("Test network error")
 
     task_info = {
         "url": "http://fakeurl.com/network_error_target.zip",
@@ -185,9 +179,7 @@ def test_execute_download_request_exception(mock_session, tmp_path):
     status, message = execute_download(mock_session, task_info, output_dir)
 
     assert status == "error"
-    assert (
-        "網路請求失敗" in message
-    )  # Or "達到最大重試次數" depending on how many times side_effect is called
+    assert "網路請求失敗" in message  # Or "達到最大重試次數" depending on how many times side_effect is called
     expected_file_path = os.path.join(output_dir, task_info["file_name"])
     assert not os.path.exists(expected_file_path)
 

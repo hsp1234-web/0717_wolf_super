@@ -33,9 +33,7 @@ except Exception as e:
 # from apps.feature_analyzer.analyzer import ChimeraAnalyzer # 暫時註解以避免導入錯誤
 
 
-@pytest.mark.skip(
-    reason="Skipping due to missing apps.feature_analyzer module and to expedite Redline Recovery"
-)
+@pytest.mark.skip(reason="Skipping due to missing apps.feature_analyzer module and to expedite Redline Recovery")
 class TestChimeraAnalyzerTaifexPCRatio(unittest.TestCase):
     def setUp(self):
         """為每個測試案例設置一個乾淨的檔案型資料庫。"""
@@ -224,32 +222,21 @@ class TestChimeraAnalyzerTaifexPCRatio(unittest.TestCase):
         print(result_df.to_string())  # 打印完整的 DataFrame
 
         # 確保 result_df['trading_date'] 是 date 對象以進行比較
-        if not result_df.empty and pd.api.types.is_datetime64_any_dtype(
-            result_df["trading_date"]
-        ):
+        if not result_df.empty and pd.api.types.is_datetime64_any_dtype(result_df["trading_date"]):
             result_df["trading_date"] = result_df["trading_date"].dt.date
-        elif not result_df.empty and isinstance(
-            result_df["trading_date"].iloc[0], str
-        ):  # 如果是字串，嘗試轉換
+        elif not result_df.empty and isinstance(result_df["trading_date"].iloc[0], str):  # 如果是字串，嘗試轉換
             try:
-                result_df["trading_date"] = pd.to_datetime(
-                    result_df["trading_date"]
-                ).dt.date
+                result_df["trading_date"] = pd.to_datetime(result_df["trading_date"]).dt.date
             except Exception as e:
-                print(
-                    f"Warning: Could not convert trading_date column to date objects: {e}"
-                )
+                print(f"Warning: Could not convert trading_date column to date objects: {e}")
 
         self.assertEqual(len(result_df), 3)
 
         # 增加檢查確保篩選後的 DataFrame 不是空的
         txo_data_20230101_df = result_df[
-            (result_df["trading_date"] == date(2023, 1, 1))
-            & (result_df["product_id"] == "TXO")
+            (result_df["trading_date"] == date(2023, 1, 1)) & (result_df["product_id"] == "TXO")
         ]
-        self.assertFalse(
-            txo_data_20230101_df.empty, "No data found for TXO on 2023-01-01"
-        )
+        self.assertFalse(txo_data_20230101_df.empty, "No data found for TXO on 2023-01-01")
         txo_20230101 = txo_data_20230101_df.iloc[0]
         self.assertAlmostEqual(txo_20230101["pc_volume_ratio"], 0.8)
         self.assertAlmostEqual(txo_20230101["pc_oi_ratio"], 0.8)
@@ -259,15 +246,13 @@ class TestChimeraAnalyzerTaifexPCRatio(unittest.TestCase):
         self.assertEqual(txo_20230101["total_call_oi"], 1000)
 
         teo_20230101 = result_df[
-            (result_df["trading_date"] == date(2023, 1, 1))
-            & (result_df["product_id"] == "TEO")
+            (result_df["trading_date"] == date(2023, 1, 1)) & (result_df["product_id"] == "TEO")
         ].iloc[0]
         self.assertAlmostEqual(teo_20230101["pc_volume_ratio"], 1.2)
         self.assertAlmostEqual(teo_20230101["pc_oi_ratio"], 1.2)
 
         txo_20230102 = result_df[
-            (result_df["trading_date"] == date(2023, 1, 2))
-            & (result_df["product_id"] == "TXO")
+            (result_df["trading_date"] == date(2023, 1, 2)) & (result_df["product_id"] == "TXO")
         ].iloc[0]
         self.assertAlmostEqual(txo_20230102["pc_volume_ratio"], 70 / 120)
         self.assertAlmostEqual(txo_20230102["pc_oi_ratio"], 700 / 1200)

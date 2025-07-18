@@ -1,25 +1,26 @@
 # -*- coding: utf-8 -*-
-import subprocess
-import time
-import sys
 import os
-from playwright.sync_api import sync_playwright, expect
+import subprocess
+import sys
+import time
+
+from playwright.sync_api import expect, sync_playwright
 
 SERVICE_URL = "http://127.0.0.1:8000/"
 DB_FILE = "tasks.sqlite"
-VERIFICATION_TIMEOUT = 10000 # 10 秒的超時，對於快速測試已綽綽有餘
+VERIFICATION_TIMEOUT = 10000  # 10 秒的超時，對於快速測試已綽綽有餘
 
 if os.path.exists(DB_FILE):
     os.remove(DB_FILE)
 
 # --- 關鍵：設定作戰演習模式 ---
 test_env = os.environ.copy()
-test_env['PROMETHEUS_ENV'] = 'test'
+test_env["PROMETHEUS_ENV"] = "test"
 
 print("戰報：正在『作戰演習模式』下啟動所有服務...")
 server_process = subprocess.Popen(["poetry", "run", "python", "run.py", "dashboard"], env=test_env)
 worker_process = subprocess.Popen(["poetry", "run", "python", "real_worker.py"], env=test_env)
-time.sleep(3) # 快速啟動
+time.sleep(3)  # 快速啟動
 
 try:
     with sync_playwright() as p:

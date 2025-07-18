@@ -1,15 +1,16 @@
 import os
-import time
-import pytest
-from fastapi.testclient import TestClient
 import sys
+import time
 import uuid
 
-# 將專案根目錄加入 sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+import pytest
+from fastapi.testclient import TestClient
 
-from src.prometheus.entrypoints.query_gateway import app, get_task_queue
+# 將專案根目錄加入 sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
+from src.prometheus.entrypoints.query_gateway import app, get_task_queue
 from src.prometheus.models.snapshot_models import BacktestResult
 
 # --- 測試用的依賴覆寫 ---
@@ -17,14 +18,17 @@ from src.prometheus.models.snapshot_models import BacktestResult
 # 為每個測試模組創建一個獨立的資料庫
 TEST_DB_PATH = f"./data/test_backtest_{uuid.uuid4()}.db"
 
+
 def get_test_task_queue():
     """提供一個指向獨立測試資料庫的佇列實例。"""
     os.makedirs(os.path.dirname(TEST_DB_PATH), exist_ok=True)
     return SQLiteQueue(TEST_DB_PATH)
 
+
 app.dependency_overrides[get_task_queue] = get_test_task_queue
 
 client = TestClient(app)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def cleanup_test_db():
@@ -35,16 +39,16 @@ def cleanup_test_db():
 
 
 def run_worker_once(db_path):
-    """ 一個輔助函數，僅執行一次工人任務獲取與處理 """
+    """一個輔助函數，僅執行一次工人任務獲取與處理"""
     from real_worker import process_backtest
 
     queue = SQLiteQueue(db_path)
     task = queue.get()
     if task:
         task_id, task_type, payload = task
-        if task_type == 'backtest':
+        if task_type == "backtest":
             result = process_backtest(payload)
-            queue.update_task(task_id, 'completed', result)
+            queue.update_task(task_id, "completed", result)
         else:
             print(f"測試工人忽略了非回測任務: {task_type}")
 
@@ -61,10 +65,7 @@ def test_backtest_full_workflow():
     """
     # 1. 提交任務
     strategy_code = "def handle_data(context, data): order_target_percent(context.asset, 1)"
-    request_payload = {
-        "strategy_code": strategy_code,
-        "strategy_name": "黃金交叉策略"
-    }
+    request_payload = {"strategy_code": strategy_code, "strategy_name": "黃金交叉策略"}
     response = client.post("/api/v1/backtest/run", json=request_payload)
     assert response.status_code == 200, f"提交任務失敗: {response.text}"
     task_id = response.json().get("task_id")

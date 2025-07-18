@@ -1,10 +1,11 @@
-import unittest
 import logging
 import os
-from pathlib import Path
 import time
+import unittest
+from pathlib import Path
 
 from prometheus.core.logging.log_manager import LogManager
+
 
 class TestLogManager(unittest.TestCase):
     """測試中央日誌管理器 LogManager"""
@@ -21,7 +22,7 @@ class TestLogManager(unittest.TestCase):
             os.remove(self.log_path)
         if self.log_dir.exists():
             # 確保目錄是空的
-            for f in self.log_dir.glob('*'):
+            for f in self.log_dir.glob("*"):
                 os.remove(f)
             os.rmdir(self.log_dir)
 
@@ -37,10 +38,9 @@ class TestLogManager(unittest.TestCase):
                 os.rmdir(self.log_dir)
             except OSError:
                 # 如果目錄不是空的，先刪除裡面的檔案
-                for f in self.log_dir.glob('*'):
+                for f in self.log_dir.glob("*"):
                     os.remove(f)
                 os.rmdir(self.log_dir)
-
 
     def test_singleton_instance(self):
         """測試 LogManager 是否能正確實現單例模式"""
@@ -63,7 +63,7 @@ class TestLogManager(unittest.TestCase):
         # logging 是非同步的，給它一點時間寫入檔案
         time.sleep(0.1)
 
-        with open(self.log_path, 'r', encoding='utf-8') as f:
+        with open(self.log_path, "r", encoding="utf-8") as f:
             content = f.read()
             self.assertIn("這是一條測試訊息。", content)
 
@@ -76,7 +76,7 @@ class TestLogManager(unittest.TestCase):
 
         time.sleep(0.1)
 
-        with open(self.log_path, 'r', encoding='utf-8') as f:
+        with open(self.log_path, "r", encoding="utf-8") as f:
             content = f.read().strip()
 
         # 正則表達式來匹配格式
@@ -99,11 +99,12 @@ class TestLogManager(unittest.TestCase):
 
         time.sleep(0.1)
 
-        with open(self.log_path, 'r', encoding='utf-8') as f:
+        with open(self.log_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         self.assertIn("[INFO] [ModuleA] - 來自模組 A 的訊息。", content)
         self.assertIn("[ERROR] [ModuleB] - 來自模組 B 的錯誤！", content)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

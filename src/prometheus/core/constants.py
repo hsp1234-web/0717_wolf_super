@@ -6,9 +6,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 # 定義所有共享資源的絕對路徑 (Path 物件)
-DB_PATH = PROJECT_ROOT / 'tasks.sqlite'
-LOG_PATH = PROJECT_ROOT / 'prometheus_system.log'
-CONFIG_PATH = PROJECT_ROOT / 'config.yml'
-WEB_DIR = PROJECT_ROOT / 'src' / 'prometheus' / 'web'
+DB_PATH = PROJECT_ROOT / "tasks.sqlite"
+LOG_PATH = PROJECT_ROOT / "prometheus_system.log"
+CONFIG_PATH = PROJECT_ROOT / "config.yml"
+WEB_DIR = PROJECT_ROOT / "src" / "prometheus" / "web"
 
 print(f"[*] 羅盤已使用 pathlib 校準 - 資料庫路徑: {DB_PATH}")

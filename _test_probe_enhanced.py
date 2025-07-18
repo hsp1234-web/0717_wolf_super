@@ -1,21 +1,20 @@
 # -*- coding: utf-8 -*-
 import subprocess
-import time
-import requests
 import sys
+import time
+
+import requests
 
 # --- 作戰參數 ---
 SERVICE_URL = "http://127.0.0.1:8000/"
 STARTUP_TIMEOUT = 15  # 伺服器啟動的最長等待時間（秒）
-REQUEST_TIMEOUT = 5   # API 請求的超時時間（秒）
+REQUEST_TIMEOUT = 5  # API 請求的超時時間（秒）
 
 # 啟動後台服務，並將日誌輸出到檔案
 print("戰報：正在啟動後台服務...")
 server_log_file = open("server_probe.log", "w")
 server_process = subprocess.Popen(
-    ["poetry", "run", "python", "run.py", "dashboard"],
-    stdout=server_log_file,
-    stderr=subprocess.STDOUT
+    ["poetry", "run", "python", "run.py", "dashboard"], stdout=server_log_file, stderr=subprocess.STDOUT
 )
 
 try:
@@ -31,7 +30,7 @@ try:
                 is_server_ready = True
                 break
         except requests.ConnectionError:
-            time.sleep(1) # 連接失敗，等待1秒後重試
+            time.sleep(1)  # 連接失敗，等待1秒後重試
         except requests.RequestException as e:
             print(f"警告：在等待期間發生非預期的請求錯誤: {e}")
             time.sleep(1)

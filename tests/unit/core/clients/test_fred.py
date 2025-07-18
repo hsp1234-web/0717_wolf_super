@@ -13,9 +13,7 @@ from prometheus.core.clients.fred import FredClient  # Corrected import name
 # FRED_API_HOST, FRED_OBSERVATIONS_ENDPOINT are not defined in the new client, remove imports
 
 # 測試用的 API Key
-TEST_FRED_API_KEY = (
-    "test_fred_api_key_456"  # This will be used by mocked get_fred_api_key
-)
+TEST_FRED_API_KEY = "test_fred_api_key_456"  # This will be used by mocked get_fred_api_key
 
 
 @pytest.fixture
@@ -60,9 +58,7 @@ class TestFredClientInitialization:  # Renamed for consistency
         assert client.api_key == "env_key_for_fred"
         # BaseAPIClient's base_url is set, but less relevant for fredapi library itself
         assert client.base_url == "https://api.stlouisfed.org/fred"
-        assert hasattr(
-            client, "_fred_official_client"
-        )  # Check if fredapi lib instance created
+        assert hasattr(client, "_fred_official_client")  # Check if fredapi lib instance created
 
     def test_init_no_key_raises_value_error(self, mock_get_fred_api_key):
         mock_get_fred_api_key.side_effect = ValueError("FRED API Key 未設定 (mocked)")
@@ -111,25 +107,17 @@ class TestFredClientFetchData:  # Renamed for consistency
         expected_df.index.name = "Date"
         assert_frame_equal(result_df, expected_df)
 
-    def test_fetch_data_empty_series_from_fred_api(
-        self, mock_fred_get_series, fred_client_fixture: FredClient
-    ):
+    def test_fetch_data_empty_series_from_fred_api(self, mock_fred_get_series, fred_client_fixture: FredClient):
         """測試 FRED API 返回空 Series。"""
         series_id = "EMPTYSERIES"
-        mock_fred_get_series.return_value = pd.Series(
-            dtype=float, name=series_id
-        )  # Empty series
+        mock_fred_get_series.return_value = pd.Series(dtype=float, name=series_id)  # Empty series
 
         result_df = fred_client_fixture.fetch_data(symbol=series_id)
 
         expected_df = pd.DataFrame(columns=["Date", series_id]).set_index("Date")
-        assert_frame_equal(
-            result_df, expected_df, check_dtype=False
-        )  # Empty DFs might have object dtype for index
+        assert_frame_equal(result_df, expected_df, check_dtype=False)  # Empty DFs might have object dtype for index
 
-    def test_fetch_data_fred_api_exception(
-        self, mock_fred_get_series, fred_client_fixture: FredClient
-    ):
+    def test_fetch_data_fred_api_exception(self, mock_fred_get_series, fred_client_fixture: FredClient):
         """測試 fredapi.Fred.get_series 拋出異常時，fetch_data 返回標準化空 DataFrame。"""
         series_id = "FAILINGSERIES"
         mock_fred_get_series.side_effect = Exception("Mocked fredapi error")

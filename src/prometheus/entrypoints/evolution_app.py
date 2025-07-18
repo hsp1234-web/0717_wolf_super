@@ -4,11 +4,10 @@ import uuid
 from pathlib import Path
 
 from deap import tools
-
+from prometheus.core.logging.log_manager import LogManager
 from prometheus.core.queue.sqlite_queue import SQLiteQueue
 from prometheus.services.checkpoint_manager import CheckpointManager
 from prometheus.services.evolution_chamber import EvolutionChamber
-from prometheus.core.logging.log_manager import LogManager
 
 # --- 演化設定 ---
 POPULATION_SIZE = 10
@@ -105,8 +104,10 @@ def evolution_loop(
 
         if (gen + 1) % CHECKPOINT_FREQ == 0:
             current_state = {
-                "population": population, "generation": gen,
-                "hall_of_fame": hall_of_fame, "random_state": random.getstate(),
+                "population": population,
+                "generation": gen,
+                "hall_of_fame": hall_of_fame,
+                "random_state": random.getstate(),
             }
             checkpoint_manager.save_checkpoint(current_state)
 

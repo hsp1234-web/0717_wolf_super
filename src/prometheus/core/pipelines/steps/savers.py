@@ -1,9 +1,11 @@
-import pandas as pd
-from prometheus.core.pipelines.base_step import BaseETLStep, BaseStep
-from prometheus.core.logging.log_manager import LogManager
-import duckdb
 import os
-from typing import Dict, Any
+from typing import Any, Dict
+
+import duckdb
+import pandas as pd
+from prometheus.core.logging.log_manager import LogManager
+from prometheus.core.pipelines.base_step import BaseETLStep, BaseStep
+
 from src.prometheus.core.db.db_manager import DBManager
 
 
@@ -35,17 +37,19 @@ class SaveFactorsToWarehouseStep(BaseETLStep):
                 with duckdb.connect(self.db_path) as con:
                     # Add ticker column
                     data_to_save = data.copy()
-                    data_to_save['ticker'] = ticker
+                    data_to_save["ticker"] = ticker
 
                     # Check if table exists
-                    res = con.execute(f"SELECT table_name FROM information_schema.tables WHERE table_name = '{self.table_name}'").fetchone()
-                    if res: # Table exists, so append
+                    res = con.execute(
+                        f"SELECT table_name FROM information_schema.tables WHERE table_name = '{self.table_name}'"
+                    ).fetchone()
+                    if res:  # Table exists, so append
                         # Remove existing data for the same ticker to avoid duplicates
                         con.execute(f"DELETE FROM {self.table_name} WHERE ticker = '{ticker}'")
-                        con.register('factors_df', data_to_save.reset_index())
+                        con.register("factors_df", data_to_save.reset_index())
                         con.execute(f"INSERT INTO {self.table_name} SELECT * FROM factors_df")
-                    else: # Table does not exist, so create
-                        con.register('factors_df', data_to_save.reset_index())
+                    else:  # Table does not exist, so create
+                        con.register("factors_df", data_to_save.reset_index())
                         con.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM factors_df")
 
                     self.logger.info(f"成功將 {len(data)} 筆因子儲存到 '{self.table_name}' for ticker {ticker}。")

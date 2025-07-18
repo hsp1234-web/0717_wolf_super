@@ -1,12 +1,15 @@
 from typing import Dict, Type
+
 from .base import BaseClient
-from .yfinance import YFinanceClient
 from .fred import FredClient
+from .yfinance import YFinanceClient
+
 
 class ClientFactory:
     """
     客戶端工廠，根據數據源名稱創建並回傳對應的客戶端實例。
     """
+
     _clients: Dict[str, Type[BaseClient]] = {
         "yfinance": YFinanceClient,
         "fred": FredClient,

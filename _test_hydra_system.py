@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-import subprocess
-import time
-import sys
 import os
-from playwright.sync_api import sync_playwright, expect
+import subprocess
+import sys
+import time
+
+from playwright.sync_api import expect, sync_playwright
 
 from src.prometheus.core.constants import DB_PATH
 
@@ -14,7 +15,7 @@ if os.path.exists(DB_PATH):
     os.remove(DB_PATH)
 
 test_env = os.environ.copy()
-test_env['PROMETHEUS_ENV'] = 'test'
+test_env["PROMETHEUS_ENV"] = "test"
 
 print("戰報：正在『作戰演習模式』下啟動所有服務...")
 server_process = subprocess.Popen(["poetry", "run", "python", "run.py", "dashboard"], env=test_env)
@@ -44,6 +45,7 @@ try:
         print("戰報：正在下達『因子相關性』指令...")
         page.locator("#correlation-btn").click()
         import re
+
         expected_regex_2 = re.compile(r"任務結果: 分析完成。VIX 與 SKEW 的滾動相關性為: -?0\.\d+")
         expect(status_message).to_have_text(expected_regex_2, timeout=VERIFICATION_TIMEOUT)
         print("戰報：驗證通過 - 因子相關性任務成功。")

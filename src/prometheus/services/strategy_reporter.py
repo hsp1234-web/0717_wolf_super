@@ -2,25 +2,26 @@
 """
 策略報告生成器。
 """
+
 import os
 from typing import List
+
 from deap import tools
 from prometheus.models.strategy_models import PerformanceReport
+
 
 class StrategyReporter:
     """
     將演化過程中發現的最優策略，生成一份清晰的報告。
     """
-    def __init__(self, report_dir: str = 'reports'):
+
+    def __init__(self, report_dir: str = "reports"):
         self.report_dir = report_dir
         if not os.path.exists(self.report_dir):
             os.makedirs(self.report_dir)
 
     def generate_report(
-        self,
-        best_individual: tools.HallOfFame,
-        performance_report: PerformanceReport,
-        available_factors: List[str]
+        self, best_individual: tools.HallOfFame, performance_report: PerformanceReport, available_factors: List[str]
     ):
         """
         生成並儲存策略報告。
@@ -58,8 +59,8 @@ class StrategyReporter:
 {', '.join(best_strategy_factors)}
 ```
 """
-        report_path = os.path.join(self.report_dir, 'best_strategy_report.md')
-        with open(report_path, 'w', encoding='utf-8') as f:
+        report_path = os.path.join(self.report_dir, "best_strategy_report.md")
+        with open(report_path, "w", encoding="utf-8") as f:
             f.write(report_content)
 
         print(f"✅ 策略報告已成功生成於: {report_path}")

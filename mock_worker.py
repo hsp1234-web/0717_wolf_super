@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-import sqlite3
-import time
 import logging
 import os
+import sqlite3
+import time
 
-logging.basicConfig(level=logging.INFO, format='[工人] %(asctime)s - %(message)s')
-DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), 'tasks.sqlite'))
+logging.basicConfig(level=logging.INFO, format="[工人] %(asctime)s - %(message)s")
+DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), "tasks.sqlite"))
+
 
 def init_db():
     """初始化任務資料庫與資料表。"""
@@ -23,13 +24,15 @@ def init_db():
         conn.commit()
         logging.info("任務資料庫已成功初始化。")
 
+
 def process_task(task_id):
     """模擬處理一個任務。"""
     logging.info(f"正在處理任務 {task_id}...")
-    time.sleep(5) # 模擬耗時工作
+    time.sleep(5)  # 模擬耗時工作
     result_message = "分析完成，一切指標正常。"
     logging.info(f"任務 {task_id} 處理完畢。")
     return result_message
+
 
 def main_loop():
     """工人的主循環，不斷尋找並處理任務。"""
@@ -46,12 +49,12 @@ def main_loop():
                 cursor.execute("SELECT task_id FROM tasks WHERE status = 'pending' LIMIT 1")
                 task = cursor.fetchone()
                 if task:
-                    task_id = task['task_id']
+                    task_id = task["task_id"]
                     cursor.execute("UPDATE tasks SET status = 'running' WHERE task_id = ?", (task_id,))
                     conn.commit()
                     task_to_process = task_id
                 else:
-                    conn.commit() # 如果沒任務，也要結束事務
+                    conn.commit()  # 如果沒任務，也要結束事務
             except Exception as e:
                 conn.rollback()
                 logging.error(f"領取任務時發生資料庫錯誤: {e}")
@@ -61,12 +64,12 @@ def main_loop():
             with sqlite3.connect(DB_PATH) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "UPDATE tasks SET status = 'completed', result = ? WHERE task_id = ?",
-                    (result, task_to_process)
+                    "UPDATE tasks SET status = 'completed', result = ? WHERE task_id = ?", (result, task_to_process)
                 )
                 conn.commit()
 
-        time.sleep(1) # 輪詢間隔
+        time.sleep(1)  # 輪詢間隔
+
 
 if __name__ == "__main__":
     main_loop()

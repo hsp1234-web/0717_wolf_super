@@ -1,21 +1,23 @@
-import time
-import pytest
-from fastapi.testclient import TestClient
-import sys
 import os
+import sys
+import time
 import uuid
 
-# 將專案根目錄加入 sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+import pytest
+from fastapi.testclient import TestClient
 
+# 將專案根目錄加入 sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
 from src.prometheus.entrypoints.query_gateway import app, get_task_queue
 from src.prometheus.models.snapshot_models import ShanJiaLangInitialData
-from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
 
 # --- 測試用的依賴覆寫 ---
 
 # 為每個測試創建一個獨立的資料庫，以確保隔離性
 TEST_DB_PATH = f"./data/test_{uuid.uuid4()}.db"
+
 
 def get_test_task_queue():
     """提供一個指向獨立測試資料庫的佇列實例。"""
@@ -23,10 +25,12 @@ def get_test_task_queue():
     os.makedirs(os.path.dirname(TEST_DB_PATH), exist_ok=True)
     return SQLiteQueue(TEST_DB_PATH)
 
+
 # 在應用層級覆寫依賴
 app.dependency_overrides[get_task_queue] = get_test_task_queue
 
 client = TestClient(app)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def cleanup_test_db():
@@ -60,12 +64,12 @@ def run_worker_once(db_path):
     if task:
         task_id, task_type, payload = task
         print(f"[Worker] 接收到任務 {task_id}")
-        if task_type == 'initial_analysis':
+        if task_type == "initial_analysis":
             result = process_initial_analysis(payload)
-            queue.update_task(task_id, 'completed', result)
+            queue.update_task(task_id, "completed", result)
             print(f"[Worker] 任務 {task_id} 已完成")
         else:
-            queue.update_task(task_id, 'failed', {"error": "unknown task type"})
+            queue.update_task(task_id, "failed", {"error": "unknown task type"})
             print(f"[Worker] 未知任務類型 {task_type}")
 
 
@@ -80,10 +84,7 @@ def test_ai_analysis_full_workflow():
     5. 驗證最終結果是否正確。
     """
     # 1. 提交任務
-    request_payload = {
-        "raw_content": "VIX 指數飆升，市場恐慌。",
-        "selected_masters": ["交易醫生"]
-    }
+    request_payload = {"raw_content": "VIX 指數飆升，市場恐慌。", "selected_masters": ["交易醫生"]}
     response = client.post("/api/v1/ai/initial_analysis", json=request_payload)
     assert response.status_code == 200, f"提交任務失敗: {response.text}"
     task_id = response.json().get("task_id")

@@ -1,21 +1,21 @@
 # src/prometheus/pipelines/p5_crypto_factor_generation.py
 
-import logging
 import asyncio
+import logging
 from typing import List
 
-from src.prometheus.core.config import config
 from src.prometheus.core.clients.client_factory import ClientFactory
+from src.prometheus.core.config import config
 from src.prometheus.core.db.db_manager import DBManager
 from src.prometheus.core.engines.crypto_factor_engine import CryptoFactorEngine
 from src.prometheus.core.pipelines.pipeline import Pipeline
+from src.prometheus.core.pipelines.steps.financial_steps import RunCryptoFactorEngineStep
 from src.prometheus.core.pipelines.steps.loaders import LoadCryptoDataStep
 from src.prometheus.core.pipelines.steps.savers import SaveToWarehouseStep
-from src.prometheus.core.pipelines.steps.financial_steps import RunCryptoFactorEngineStep
 from src.prometheus.core.pipelines.steps.splitters import GroupBySymbolStep
 
 # 配置日誌
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -32,6 +32,7 @@ def create_crypto_factor_pipeline(symbols: List[str], db_manager: DBManager, cli
     crypto_factor_engine = CryptoFactorEngine(client_factory=client_factory)
 
     from src.prometheus.core.pipelines.steps.normalize_columns_step import NormalizeColumnsStep
+
     # 定義 Pipeline 的步驟
     steps = [
         LoadCryptoDataStep(symbols=symbols, client_factory=client_factory),
@@ -52,10 +53,10 @@ def main():
 
     # --- 配置區 ---
     # 定義目標加密貨幣清單
-    target_symbols = ['BTC-USD', 'ETH-USD']
+    target_symbols = ["BTC-USD", "ETH-USD"]
 
     # 初始化資料庫管理器
-    db_manager = DBManager(db_path=config.get('database.main_db_path'))
+    db_manager = DBManager(db_path=config.get("database.main_db_path"))
 
     # 初始化客戶端工廠
     client_factory = ClientFactory()

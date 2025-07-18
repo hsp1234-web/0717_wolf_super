@@ -76,18 +76,12 @@ def nyfed_client_default_config_fixture():
 class TestNYFedClientInitialization:
     """測試 NYFedClient 的初始化。"""
 
-    def test_init_with_default_configs(
-        self, nyfed_client_default_config_fixture: NYFedClient
-    ):
+    def test_init_with_default_configs(self, nyfed_client_default_config_fixture: NYFedClient):
         assert nyfed_client_default_config_fixture.data_configs == NYFED_DATA_CONFIGS
         assert len(nyfed_client_default_config_fixture.data_configs) > 0
-        assert (
-            nyfed_client_default_config_fixture.api_key is None
-        )  # 驗證 BaseAPIClient 初始化
+        assert nyfed_client_default_config_fixture.api_key is None  # 驗證 BaseAPIClient 初始化
         assert nyfed_client_default_config_fixture.base_url is None
-        assert isinstance(
-            nyfed_client_default_config_fixture._session, requests.Session
-        )
+        assert isinstance(nyfed_client_default_config_fixture._session, requests.Session)
 
     def test_init_with_custom_configs(self):
         custom_configs = [mock_test_config_sbn]
@@ -105,14 +99,10 @@ class TestNYFedClientDownloadExcel:
         mock_response.status_code = 200
         mock_response.content = mock_sbn_excel_bytes.getvalue()
 
-        with patch.object(
-            nyfed_client_fixture._session, "get", return_value=mock_response
-        ) as mock_actual_get:
+        with patch.object(nyfed_client_fixture._session, "get", return_value=mock_response) as mock_actual_get:
             df = nyfed_client_fixture._download_excel_to_dataframe(mock_test_config_sbn)
 
-            mock_actual_get.assert_called_once_with(
-                mock_test_config_sbn["url"], timeout=60
-            )
+            mock_actual_get.assert_called_once_with(mock_test_config_sbn["url"], timeout=60)
             assert df is not None
             assert not df.empty
             assert "AS OF DATE" in df.columns  # 這是 Excel 中的原始欄位名
@@ -126,14 +116,10 @@ class TestNYFedClientDownloadExcel:
             response=mock_response,  # HTTPError 需要 response 參數
         )
 
-        with patch.object(
-            nyfed_client_fixture._session, "get", return_value=mock_response
-        ) as mock_actual_get:
+        with patch.object(nyfed_client_fixture._session, "get", return_value=mock_response) as mock_actual_get:
             df = nyfed_client_fixture._download_excel_to_dataframe(mock_test_config_sbn)
             assert df is None
-            mock_actual_get.assert_called_once_with(
-                mock_test_config_sbn["url"], timeout=60
-            )
+            mock_actual_get.assert_called_once_with(mock_test_config_sbn["url"], timeout=60)
             mock_response.raise_for_status.assert_called_once()
 
     def test_download_request_exception(self, nyfed_client_fixture: NYFedClient):
@@ -144,9 +130,7 @@ class TestNYFedClientDownloadExcel:
         ) as mock_actual_get:
             df = nyfed_client_fixture._download_excel_to_dataframe(mock_test_config_sbn)
             assert df is None
-            mock_actual_get.assert_called_once_with(
-                mock_test_config_sbn["url"], timeout=60
-            )
+            mock_actual_get.assert_called_once_with(mock_test_config_sbn["url"], timeout=60)
 
     def test_download_excel_parse_error(self, nyfed_client_fixture: NYFedClient):
         mock_response = MagicMock(spec=requests.Response)
@@ -154,18 +138,14 @@ class TestNYFedClientDownloadExcel:
         mock_response.content = b"This is not a valid excel file"
 
         with (
-            patch.object(
-                nyfed_client_fixture._session, "get", return_value=mock_response
-            ) as mock_actual_get,
+            patch.object(nyfed_client_fixture._session, "get", return_value=mock_response) as mock_actual_get,
             patch(  # 也 mock pandas.read_excel
                 "pandas.read_excel", side_effect=ValueError("Excel parse error")
             ) as mock_read_excel,
         ):
             df = nyfed_client_fixture._download_excel_to_dataframe(mock_test_config_sbn)
             assert df is None
-            mock_actual_get.assert_called_once_with(
-                mock_test_config_sbn["url"], timeout=60
-            )
+            mock_actual_get.assert_called_once_with(mock_test_config_sbn["url"], timeout=60)
             mock_read_excel.assert_called_once()
 
 
@@ -175,9 +155,7 @@ class TestNYFedClientParseDealerPositions:
     def test_parse_sbn_type_success(self, nyfed_client_fixture: NYFedClient):
         raw_df_sbn = pd.DataFrame(mock_sbn_excel_data)
         raw_df_sbn.columns = [str(col).strip().upper() for col in raw_df_sbn.columns]
-        parsed_df = nyfed_client_fixture._parse_dealer_positions(
-            raw_df_sbn, mock_test_config_sbn
-        )
+        parsed_df = nyfed_client_fixture._parse_dealer_positions(raw_df_sbn, mock_test_config_sbn)
         expected_data = {
             "Date": pd.to_datetime(["2023-01-01", "2023-01-02"]),
             "Total_Positions": [150 * 1_000_000, 75 * 1_000_000],
@@ -188,9 +166,7 @@ class TestNYFedClientParseDealerPositions:
     def test_parse_sbp_type_success(self, nyfed_client_fixture: NYFedClient):
         raw_df_sbp = pd.DataFrame(mock_sbp_excel_data)
         raw_df_sbp.columns = [str(col).strip().upper() for col in raw_df_sbp.columns]
-        parsed_df = nyfed_client_fixture._parse_dealer_positions(
-            raw_df_sbp, mock_test_config_sbp
-        )
+        parsed_df = nyfed_client_fixture._parse_dealer_positions(raw_df_sbp, mock_test_config_sbp)
         expected_data = {
             "Date": pd.to_datetime(["2023-02-01", "2023-02-02"]),
             "Total_Positions": [300 * 1_000_000, 150 * 1_000_000],
@@ -208,9 +184,7 @@ class TestNYFedClientParseDealerPositions:
 class TestNYFedClientFetchData:  # 原 TestNYFedFetchAllPrimaryDealerPositions
     """測試 fetch_data 方法 (取代了 fetch_all_primary_dealer_positions)。"""
 
-    def test_fetch_data_success_merges_data(
-        self, mock_parse, mock_download, nyfed_client_fixture: NYFedClient
-    ):
+    def test_fetch_data_success_merges_data(self, mock_parse, mock_download, nyfed_client_fixture: NYFedClient):
         mock_download.return_value = pd.DataFrame({"dummy_col": [1]})
         df_sbn_parsed = pd.DataFrame(
             {
@@ -235,28 +209,20 @@ class TestNYFedClientFetchData:  # 原 TestNYFedFetchAllPrimaryDealerPositions
         mock_parse.side_effect = parse_side_effect
 
         # 調用新的 fetch_data 方法
-        result_df = nyfed_client_fixture.fetch_data(
-            symbol="any_symbol_ignored", kwarg_ignored="value"
-        )
+        result_df = nyfed_client_fixture.fetch_data(symbol="any_symbol_ignored", kwarg_ignored="value")
 
         expected_data = [
             {"Date": pd.to_datetime("2023-01-01"), "Total_Positions": 1000},
             {"Date": pd.to_datetime("2023-01-02"), "Total_Positions": 2100},
             {"Date": pd.to_datetime("2023-01-03"), "Total_Positions": 1200},
         ]
-        expected_df = (
-            pd.DataFrame(expected_data).sort_values(by="Date").reset_index(drop=True)
-        )
+        expected_df = pd.DataFrame(expected_data).sort_values(by="Date").reset_index(drop=True)
         assert_frame_equal(result_df, expected_df)
         assert mock_download.call_count == len(nyfed_client_fixture.data_configs)
         assert mock_parse.call_count == len(nyfed_client_fixture.data_configs)
 
-    def test_fetch_data_one_source_fails_download(
-        self, mock_parse, mock_download, nyfed_client_fixture: NYFedClient
-    ):
-        df_sbp_parsed = pd.DataFrame(
-            {"Date": pd.to_datetime(["2023-01-02"]), "Total_Positions": [2100]}
-        )
+    def test_fetch_data_one_source_fails_download(self, mock_parse, mock_download, nyfed_client_fixture: NYFedClient):
+        df_sbp_parsed = pd.DataFrame({"Date": pd.to_datetime(["2023-01-02"]), "Total_Positions": [2100]})
 
         def download_side_effect(config_arg):
             if config_arg["type"] == "SBN":
@@ -280,9 +246,7 @@ class TestNYFedClientFetchData:  # 原 TestNYFedFetchAllPrimaryDealerPositions
             else len(nyfed_client_fixture.data_configs)
         )
 
-    def test_fetch_data_all_sources_fail_or_empty(
-        self, mock_parse, mock_download, nyfed_client_fixture: NYFedClient
-    ):
+    def test_fetch_data_all_sources_fail_or_empty(self, mock_parse, mock_download, nyfed_client_fixture: NYFedClient):
         mock_download.return_value = None  # 所有下載都失敗
         result_df = nyfed_client_fixture.fetch_data()
         assert result_df.empty

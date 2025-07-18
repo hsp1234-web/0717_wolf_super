@@ -2,7 +2,6 @@
 from typing import Any, Dict
 
 import yaml
-
 from prometheus.core.logging.log_manager import LogManager
 
 logger = LogManager.get_instance().get_logger("ConfigManager")
@@ -11,6 +10,10 @@ logger = LogManager.get_instance().get_logger("ConfigManager")
 class ConfigManager:
     _instance = None
     _config: Dict[str, Any] = {}
+
+    # 測試環境專用路徑
+    TEST_DB_PATH = "data/test_prometheus.db"
+    TEST_WAREHOUSE_PATH = "data/test_warehouse.duckdb"
 
     def __new__(cls, config_path: str = "config.yml"):
         if cls._instance is None:

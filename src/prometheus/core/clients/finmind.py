@@ -9,9 +9,9 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import requests
-
-from .base import BaseAPIClient
 from prometheus.core.logging.log_manager import LogManager
+
+from .base import BaseClient
 
 logger = LogManager.get_instance().get_logger("FinMindClient")
 
@@ -19,7 +19,7 @@ logger = LogManager.get_instance().get_logger("FinMindClient")
 FINMIND_API_BASE_URL = "https://api.finmindtrade.com/api/v4/data"
 
 
-class FinMindClient(BaseAPIClient):
+class FinMindClient(BaseClient):
     """
     用於與 FinMind API 互動的客戶端。
     FinMind API 的特點是所有數據請求都使用同一個基礎 URL，
@@ -37,19 +37,16 @@ class FinMindClient(BaseAPIClient):
         Raises:
             ValueError: 如果 API Token 未提供且環境變數中也未設定。
         """
-        finmind_api_token = api_token or os.getenv("FINMIND_API_TOKEN")
-        if not finmind_api_token:
-            raise ValueError(
-                "FinMind API token 未設定。請設定 FINMIND_API_TOKEN 環境變數或在初始化時傳入 api_token。"
-            )
-
-        super().__init__(api_key=finmind_api_token, base_url=FINMIND_API_BASE_URL)
+        self.api_key = api_token or os.getenv("FINMIND_API_TOKEN")
+        if not self.api_key:
+            raise ValueError("FinMind API token 未設定。請設定 FINMIND_API_TOKEN 環境變數或在初始化時傳入 api_token。")
+        self.base_url = FINMIND_API_BASE_URL
+        self._session = requests.Session()
         logger.info("FinMindClient 初始化完成。")
 
-    async def _request(
-        self, endpoint: str = "", params: Optional[Dict[str, Any]] = None
-    ) -> pd.DataFrame:
+    async def _request(self, endpoint: str = "", params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         import asyncio
+
         if not params:
             raise ValueError("請求 FinMind API 時，params 參數不得為空。")
 
@@ -57,17 +54,13 @@ class FinMindClient(BaseAPIClient):
         request_params["token"] = self.api_key
 
         if not self.base_url:
-            raise ValueError(
-                "FinMindClient: base_url is not set, cannot make a request."
-            )
+            raise ValueError("FinMindClient: base_url is not set, cannot make a request.")
 
-        current_url = (
-            f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
-            if endpoint
-            else self.base_url
+        current_url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}" if endpoint else self.base_url
+
+        logger.debug(
+            f"向 FinMind API 發送請求，URL: {current_url}, 資料集：'{request_params.get('dataset')}', 資料ID：'{request_params.get('data_id')}'"
         )
-
-        logger.debug(f"向 FinMind API 發送請求，URL: {current_url}, 資料集：'{request_params.get('dataset')}', 資料ID：'{request_params.get('data_id')}'")
 
         def _sync_request():
             try:
@@ -171,13 +164,9 @@ if __name__ == "__main__":
             print(f"成功獲取股票 2330 的法人買賣超數據 (共 {len(investor_data)} 筆):")
             print(investor_data.head())
         else:
-            print(
-                "股票 2330 的法人買賣超數據請求成功，但返回為空 DataFrame (請檢查 API Key, 日期範圍或日誌)。"
-            )
+            print("股票 2330 的法人買賣超數據請求成功，但返回為空 DataFrame (請檢查 API Key, 日期範圍或日誌)。")
 
-        print(
-            "\n測試使用 fetch_data 獲取聯發科 (2454) 股價 (2024-03-01 至 2024-03-05)..."
-        )
+        print("\n測試使用 fetch_data 獲取聯發科 (2454) 股價 (2024-03-01 至 2024-03-05)...")
         stock_price_data = client.fetch_data(
             symbol="2454",
             dataset="TaiwanStockPrice",
@@ -198,9 +187,7 @@ if __name__ == "__main__":
             end_date="2023-01-05",
         )
         if non_existent_data.empty:
-            print(
-                "獲取 XYZABC 數據返回空 DataFrame (符合預期，因為股票不存在或請求錯誤)。"
-            )
+            print("獲取 XYZABC 數據返回空 DataFrame (符合預期，因為股票不存在或請求錯誤)。")
         else:
             print(f"獲取 XYZABC 數據返回了非預期的數據: \n{non_existent_data.head()}")
 

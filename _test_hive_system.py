@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
-import subprocess
-import time
-import sys
 import os
-from playwright.sync_api import sync_playwright, expect
+import subprocess
+import sys
+import time
+
+from playwright.sync_api import expect, sync_playwright
 
 # --- 作戰參數 ---
 SERVICE_URL = "http://127.0.0.1:8000/"
 DB_FILE = os.path.abspath("tasks.sqlite")
-VERIFICATION_TIMEOUT = 20000 # 毫秒
+VERIFICATION_TIMEOUT = 20000  # 毫秒
 
 # --- 戰場準備：清理舊的資料庫 ---
 if os.path.exists(DB_FILE):

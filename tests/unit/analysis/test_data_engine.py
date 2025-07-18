@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-
 from prometheus.core.analysis.data_engine import DataEngine
 
 
@@ -32,6 +31,7 @@ def test_data_engine_logic(mock_get_client, mock_clients):
     驗證 DataEngine 的核心計算邏輯。
     """
     from unittest.mock import AsyncMock
+
     mock_yf, mock_fred, mock_taifex = mock_clients
     mock_get_client.side_effect = [mock_yf, mock_fred, mock_taifex]
     # 1. 準備 (Arrange): 建立一個模擬的 DuckDB 連線
@@ -41,7 +41,7 @@ def test_data_engine_logic(mock_get_client, mock_clients):
 
     # 使用模擬客戶端和模擬 DB 連線初始化數據引擎
     engine = DataEngine(db_connection=mock_db_conn)
-    engine.yf_client.fetch_data = AsyncMock(return_value=pd.DataFrame({'close': [1.0]}))
+    engine.yf_client.fetch_data = AsyncMock(return_value=pd.DataFrame({"close": [1.0]}))
 
     # 2. 執行 (Act): 生成快照
     dt = datetime(2025, 7, 12)
@@ -49,9 +49,7 @@ def test_data_engine_logic(mock_get_client, mock_clients):
 
     # 3. 斷言 (Assert):
     # 斷言快取查詢被調用
-    mock_db_conn.execute.assert_any_call(
-        "SELECT * FROM hourly_time_series WHERE timestamp = ?", [dt]
-    )
+    mock_db_conn.execute.assert_any_call("SELECT * FROM hourly_time_series WHERE timestamp = ?", [dt])
     # 斷言快取寫入被調用
     mock_db_conn.append.assert_called_once()
     # 斷言返回的快照是一個 DataFrame
@@ -63,13 +61,16 @@ def test_data_engine_logic(mock_get_client, mock_clients):
 def test_calculate_approx_credit_spread_with_mock_data():
     """測試 _calculate_approx_credit_spread 方法的邏輯。"""
     from unittest.mock import AsyncMock
+
     engine = DataEngine(db_connection=MagicMock())
 
-    with patch.object(engine, 'yf_client', new_callable=MagicMock) as mock_yf_client:
-        mock_yf_client.fetch_data = AsyncMock(side_effect=[
-            create_mock_history_df({"Date": ["2025-07-11"], "close": [75.0]}),  # HYG
-            create_mock_history_df({"Date": ["2025-07-11"], "close": [100.0]}),  # IEF
-        ])
+    with patch.object(engine, "yf_client", new_callable=MagicMock) as mock_yf_client:
+        mock_yf_client.fetch_data = AsyncMock(
+            side_effect=[
+                create_mock_history_df({"Date": ["2025-07-11"], "close": [75.0]}),  # HYG
+                create_mock_history_df({"Date": ["2025-07-11"], "close": [100.0]}),  # IEF
+            ]
+        )
 
         credit_spread = engine._calculate_approx_credit_spread()
         assert credit_spread == 0.7500
@@ -79,6 +80,7 @@ def test_calculate_approx_credit_spread_with_mock_data():
 def test_calculate_proxy_move_with_mock_data(mock_get_client, mock_clients):
     """測試 _calculate_proxy_move 方法的邏輯。"""
     from unittest.mock import AsyncMock
+
     mock_yf, mock_fred, mock_taifex = mock_clients
     mock_get_client.side_effect = [mock_yf, mock_fred, mock_taifex]
     engine = DataEngine(db_connection=MagicMock())
@@ -96,13 +98,16 @@ def test_calculate_proxy_move_with_mock_data(mock_get_client, mock_clients):
 def test_calculate_gold_copper_ratio_with_mock_data():
     """測試 _calculate_gold_copper_ratio 方法的邏輯。"""
     from unittest.mock import AsyncMock
+
     engine = DataEngine(db_connection=MagicMock())
 
-    with patch.object(engine, 'yf_client', new_callable=MagicMock) as mock_yf_client:
-        mock_yf_client.fetch_data = AsyncMock(side_effect=[
-            create_mock_history_df({"Date": ["2025-07-11"], "close": [200.0]}),  # GLD
-            create_mock_history_df({"Date": ["2025-07-11"], "close": [4.0]}),  # HG=F
-        ])
+    with patch.object(engine, "yf_client", new_callable=MagicMock) as mock_yf_client:
+        mock_yf_client.fetch_data = AsyncMock(
+            side_effect=[
+                create_mock_history_df({"Date": ["2025-07-11"], "close": [200.0]}),  # GLD
+                create_mock_history_df({"Date": ["2025-07-11"], "close": [4.0]}),  # HG=F
+            ]
+        )
 
         gold_copper_ratio = engine._calculate_gold_copper_ratio()
         assert gold_copper_ratio == 50.0

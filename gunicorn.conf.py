@@ -17,7 +17,7 @@ worker_class = "uvicorn.workers.UvicornWorker"
 # 日誌設定
 loglevel = "info"
 accesslog = "-"  # 將訪問日誌輸出到標準輸出
-errorlog = "-"   # 將錯誤日誌輸出到標準輸出
+errorlog = "-"  # 將錯誤日誌輸出到標準輸出
 
 # 設置環境變數，確保所有 Gunicorn 管理的進程都處於生產模式
 raw_env = ["PROMETHEUS_ENV=production"]

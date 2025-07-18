@@ -39,9 +39,7 @@ class TestFinMindClientInitialization:
 
     def test_init_with_token_arg(self, mock_env_no_finmind_token):
         client = FinMindClient(api_token="param_token_direct")
-        assert (
-            client.api_key == "param_token_direct"
-        )  # BaseAPIClient stores it as api_key
+        assert client.api_key == "param_token_direct"  # BaseAPIClient stores it as api_key
         assert client.base_url == FINMIND_API_BASE_URL
         assert isinstance(client._session, requests.Session)
 
@@ -55,9 +53,7 @@ class TestFinMindClientInitialization:
             FinMindClient()
 
     def test_init_token_priority_arg_over_env(self):
-        with patch.dict(
-            os.environ, {"FINMIND_API_TOKEN": "env_finmind_token_to_be_overridden"}
-        ):
+        with patch.dict(os.environ, {"FINMIND_API_TOKEN": "env_finmind_token_to_be_overridden"}):
             client = FinMindClient(api_token="param_finmind_token_override")
             assert client.api_key == "param_finmind_token_override"
 
@@ -82,13 +78,9 @@ class TestFinMindClientRequestOverride:
         expected_call_params = params.copy()
         expected_call_params["token"] = TEST_API_TOKEN
 
-        with patch.object(
-            finmind_client_fixture._session, "get", return_value=mock_response
-        ) as mock_actual_get:
+        with patch.object(finmind_client_fixture._session, "get", return_value=mock_response) as mock_actual_get:
             result_df = await finmind_client_fixture._request(params=params)
-            mock_actual_get.assert_called_once_with(
-                FINMIND_API_BASE_URL, params=expected_call_params
-            )
+            mock_actual_get.assert_called_once_with(FINMIND_API_BASE_URL, params=expected_call_params)
 
         expected_df = pd.DataFrame([{"col_a": "val1"}, {"col_a": "val2"}])
         assert_frame_equal(result_df, expected_df)
@@ -105,21 +97,15 @@ class TestFinMindClientRequestOverride:
         expected_call_params = params.copy()
         expected_call_params["token"] = TEST_API_TOKEN
 
-        with patch.object(
-            finmind_client_fixture._session, "get", return_value=mock_response
-        ) as mock_actual_get:
+        with patch.object(finmind_client_fixture._session, "get", return_value=mock_response) as mock_actual_get:
             result_df = await finmind_client_fixture._request(params=params)
-            mock_actual_get.assert_called_once_with(
-                FINMIND_API_BASE_URL, params=expected_call_params
-            )
+            mock_actual_get.assert_called_once_with(FINMIND_API_BASE_URL, params=expected_call_params)
 
         expected_df = pd.read_csv(StringIO(csv_content))
         assert_frame_equal(result_df, expected_df)
 
     @pytest.mark.asyncio
-    async def test_request_override_json_api_logic_error(
-        self, finmind_client_fixture: FinMindClient
-    ):
+    async def test_request_override_json_api_logic_error(self, finmind_client_fixture: FinMindClient):
         mock_response = MagicMock(spec=requests.Response)
         mock_response.status_code = 200
         mock_response.headers = {"Content-Type": "application/json"}
@@ -133,20 +119,14 @@ class TestFinMindClientRequestOverride:
         expected_call_params = params.copy()
         expected_call_params["token"] = TEST_API_TOKEN
 
-        with patch.object(
-            finmind_client_fixture._session, "get", return_value=mock_response
-        ) as mock_actual_get:
+        with patch.object(finmind_client_fixture._session, "get", return_value=mock_response) as mock_actual_get:
             result_df = await finmind_client_fixture._request(params=params)
-            mock_actual_get.assert_called_once_with(
-                FINMIND_API_BASE_URL, params=expected_call_params
-            )
+            mock_actual_get.assert_called_once_with(FINMIND_API_BASE_URL, params=expected_call_params)
 
         assert result_df.empty
 
     @pytest.mark.asyncio
-    async def test_request_override_http_error_raises(
-        self, finmind_client_fixture: FinMindClient
-    ):
+    async def test_request_override_http_error_raises(self, finmind_client_fixture: FinMindClient):
         mock_response = MagicMock(spec=requests.Response)
         mock_response.status_code = 403
         # raise_for_status 是在 response 物件上被調用的
@@ -161,19 +141,13 @@ class TestFinMindClientRequestOverride:
         expected_call_params = params.copy()
         expected_call_params["token"] = TEST_API_TOKEN
 
-        with pytest.raises(
-            requests.exceptions.HTTPError, match="Simulated HTTP 403 Error"
-        ):
-            with patch.object(
-                finmind_client_fixture._session, "get", return_value=mock_response
-            ) as mock_actual_get:
+        with pytest.raises(requests.exceptions.HTTPError, match="Simulated HTTP 403 Error"):
+            with patch.object(finmind_client_fixture._session, "get", return_value=mock_response) as mock_actual_get:
                 try:
                     await finmind_client_fixture._request(params=params)
                 finally:
                     # 確保即使在異常情況下，我們也檢查 get 是否被按預期調用
-                    mock_actual_get.assert_called_once_with(
-                        FINMIND_API_BASE_URL, params=expected_call_params
-                    )
+                    mock_actual_get.assert_called_once_with(FINMIND_API_BASE_URL, params=expected_call_params)
                 # raise_for_status 應該在 _request 內部被調用
                 # 如果 finmind_client_fixture._request 捕獲了異常，這個斷言可能不會執行
                 # 但 _request 的實現是直接 raise，所以 mock_response.raise_for_status 應該被調用
@@ -184,13 +158,9 @@ class TestFinMindClientRequestOverride:
         # 或者，假設 _session.get 返回的 response 的 raise_for_status 被正確調用
 
     @pytest.mark.asyncio
-    async def test_request_override_empty_params_value_error(
-        self, finmind_client_fixture: FinMindClient
-    ):
+    async def test_request_override_empty_params_value_error(self, finmind_client_fixture: FinMindClient):
         # 此測試不涉及 HTTP 請求
-        with pytest.raises(
-            ValueError, match="請求 FinMind API 時，params 參數不得為空。"
-        ):
+        with pytest.raises(ValueError, match="請求 FinMind API 時，params 參數不得為空。"):
             await finmind_client_fixture._request(params=None)
 
 
@@ -221,21 +191,15 @@ class TestFinMindClientFetchData:
             "start_date": start,
             "end_date": end,
         }
-        mock_internal_request.assert_awaited_once_with(
-            endpoint="", params=expected_params_to_request
-        )
+        mock_internal_request.assert_awaited_once_with(endpoint="", params=expected_params_to_request)
         assert_frame_equal(result, mock_df_response)
 
     @pytest.mark.asyncio
-    async def test_fetch_data_default_end_date(
-        self, mock_internal_request, finmind_client_fixture: FinMindClient
-    ):
+    async def test_fetch_data_default_end_date(self, mock_internal_request, finmind_client_fixture: FinMindClient):
         mock_internal_request.return_value = pd.DataFrame()  # 返回不重要
 
         with patch("prometheus.core.clients.finmind.datetime") as mock_dt:
-            mock_dt.now.return_value.strftime.return_value = (
-                "2023-12-25"  # Mocked current date
-            )
+            mock_dt.now.return_value.strftime.return_value = "2023-12-25"  # Mocked current date
 
             await finmind_client_fixture.fetch_data(
                 symbol="2330",
@@ -250,9 +214,7 @@ class TestFinMindClientFetchData:
             "start_date": "2023-01-01",
             "end_date": "2023-12-25",  # Defaulted to mocked now
         }
-        mock_internal_request.assert_awaited_once_with(
-            endpoint="", params=expected_params
-        )
+        mock_internal_request.assert_awaited_once_with(endpoint="", params=expected_params)
 
     @pytest.mark.asyncio
     async def test_fetch_data_missing_required_kwargs(
@@ -293,9 +255,7 @@ class TestFinMindClientFetchData:
             "end_date": "2024-01-05",
         }
         # 驗證 _request 被調用時的參數
-        mock_internal_request.assert_awaited_once_with(
-            endpoint="", params=expected_params_for_request
-        )
+        mock_internal_request.assert_awaited_once_with(endpoint="", params=expected_params_for_request)
 
 
 # pytest tests/unit/core/clients/test_finmind.py -v

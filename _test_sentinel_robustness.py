@@ -1,21 +1,25 @@
 # -*- coding: utf-8 -*-
-import subprocess
-import time
-import sys
 import os
-from playwright.sync_api import sync_playwright, expect
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
+import subprocess
+import sys
+import time
+
+from playwright.sync_api import expect, sync_playwright
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
 from prometheus.core.constants import DB_PATH, LOG_PATH
 
 SERVICE_URL = "http://127.0.0.1:8000/"
 VERIFICATION_TIMEOUT = 15000
 
 # --- 戰場準備 ---
-if os.path.exists(DB_PATH): os.remove(DB_PATH)
-if os.path.exists(LOG_PATH): os.remove(LOG_PATH)
+if os.path.exists(DB_PATH):
+    os.remove(DB_PATH)
+if os.path.exists(LOG_PATH):
+    os.remove(LOG_PATH)
 
 test_env = os.environ.copy()
-test_env['PROMETHEUS_ENV'] = 'test'
+test_env["PROMETHEUS_ENV"] = "test"
 
 server_process, worker_process = None, None
 try:
@@ -56,15 +60,19 @@ except Exception as e:
     # --- 關鍵：在失敗時，打印瞭望塔的完整報告 ---
     if os.path.exists(LOG_PATH):
         print("\n--- 瞭望塔最終戰報 ---")
-        with open(LOG_PATH, 'r', encoding='utf-8') as f:
+        with open(LOG_PATH, "r", encoding="utf-8") as f:
             print(f.read())
         print("--- 戰報結束 ---")
     sys.exit(1)
 
 finally:
     print("哨兵報告：正在發送關閉信號 (毒丸)...")
-    if server_process: server_process.terminate()
-    if worker_process: worker_process.terminate()
-    if server_process: server_process.wait(timeout=5)
-    if worker_process: worker_process.wait(timeout=5)
+    if server_process:
+        server_process.terminate()
+    if worker_process:
+        worker_process.terminate()
+    if server_process:
+        server_process.wait(timeout=5)
+    if worker_process:
+        worker_process.wait(timeout=5)
     print("哨兵報告：所有服務已關閉，戰場清理完畢。")

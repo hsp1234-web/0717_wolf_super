@@ -1,8 +1,10 @@
 import json
+
 import duckdb
-from prometheus.core.logging.log_manager import LogManager
-from prometheus.core.db import get_db_connection
 from prometheus.core.config import config
+from prometheus.core.db import get_db_connection
+from prometheus.core.logging.log_manager import LogManager
+
 
 class OptimizerService:
     def __init__(self, db_path=None, table_name="optimized_strategies"):
@@ -38,9 +40,10 @@ class OptimizerService:
         with get_db_connection(self.db_path) as conn:
             conn.execute(
                 f"INSERT OR REPLACE INTO {self.table_name} VALUES (?, ?, ?, ?)",
-                (strategy_id, json.dumps(params), fitness_score, crossover_points)
+                (strategy_id, json.dumps(params), fitness_score, crossover_points),
             )
         self.log_manager.log_info(f"Strategy {strategy_id} saved successfully.")
+
 
 if __name__ == "__main__":
     service = OptimizerService()

@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Any
-import pandas as pd
+from typing import Any, List
 
+import pandas as pd
 from prometheus.core.pipelines.base_step import BaseETLStep, BaseStep
 
 
@@ -29,6 +29,7 @@ class DataPipeline:
         執行完整的数据處理流程。
         """
         import asyncio
+
         data = initial_data
         if context is None:
             context = {}
@@ -40,9 +41,7 @@ class DataPipeline:
             for i, step in enumerate(self._steps, 1):
                 # 修正: 獲取類名應為 step.__class__.__name__
                 step_name = step.__class__.__name__
-                self.logger.info(
-                    f"--- [步驟 {i}/{len(self._steps)}]：正在執行 {step_name} ---"
-                )
+                self.logger.info(f"--- [步驟 {i}/{len(self._steps)}]：正在執行 {step_name} ---")
                 if asyncio.iscoroutinefunction(step.execute):
                     data = await step.execute(data, **context)
                 else:
@@ -53,9 +52,7 @@ class DataPipeline:
             return data  # 返回最後一個步驟的結果
 
         except Exception as e:
-            self.logger.error(
-                f"數據管線在執行步驟 '{step_name}' 時發生嚴重錯誤：{e}", exc_info=True
-            )
+            self.logger.error(f"數據管線在執行步驟 '{step_name}' 時發生嚴重錯誤：{e}", exc_info=True)
             # 考慮到管線執行失敗時的健壯性，這裡可以選擇重新拋出異常
             # 或者根據需求決定是否要抑制異常並繼續（儘管通常建議拋出）
             raise
@@ -90,23 +87,29 @@ class Pipeline:
             try:
                 if isinstance(data, pd.DataFrame):
                     result = step.run(data, self.context)
-                    if hasattr(result, '__aiter__'):
+                    if hasattr(result, "__aiter__"):
                         processed_list = [item async for item in result]
-                        data = pd.concat(processed_list) if all(isinstance(i, pd.DataFrame) for i in processed_list) else processed_list
+                        data = (
+                            pd.concat(processed_list)
+                            if all(isinstance(i, pd.DataFrame) for i in processed_list)
+                            else processed_list
+                        )
                     else:
                         data = await result
                 elif isinstance(data, list):
                     processed_list = [await step.run(item, self.context) for item in data]
-                    data = pd.concat(processed_list) if all(isinstance(i, pd.DataFrame) for i in processed_list) else processed_list
+                    data = (
+                        pd.concat(processed_list)
+                        if all(isinstance(i, pd.DataFrame) for i in processed_list)
+                        else processed_list
+                    )
                 else:
                     data = await step.run(data, self.context)
 
                 self.logger.info(f"步驟 {step_name} 執行完畢。")
 
             except Exception as e:
-                self.logger.error(
-                    f"Pipeline 在執行步驟 '{step_name}' 時發生嚴重錯誤：{e}", exc_info=True
-                )
+                self.logger.error(f"Pipeline 在執行步驟 '{step_name}' 時發生嚴重錯誤：{e}", exc_info=True)
                 raise
 
         self.logger.info("Pipeline 所有步驟均已成功執行。")

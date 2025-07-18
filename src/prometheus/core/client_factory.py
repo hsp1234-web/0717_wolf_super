@@ -1,9 +1,10 @@
+import logging
+
 from prometheus.core.clients.fred import FredClient
 from prometheus.core.config import ConfigManager
 
-import logging
-
 logger = logging.getLogger(__name__)
+
 
 class ClientFactory:
     def __init__(self):

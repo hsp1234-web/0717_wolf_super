@@ -1,24 +1,26 @@
-import os
-import time
 import asyncio
-import subprocess
-import httpx
-import psutil
+import os
 import sqlite3
-import pandas as pd
+import subprocess
+import time
+
+import httpx
 import matplotlib.pyplot as plt
+import pandas as pd
+import psutil
 import pytest
 
 # --- 測試參數 ---
 DB_PATH = "data/stress_test.db"
 API_URL = "http://127.0.0.1:8000"
 NUM_TASKS = 20  # 要併發提交的任務總數
-CONCURRENCY = 5 # 併發請求數
-NUM_WORKERS = 2 # 啟動的工人數量
+CONCURRENCY = 5  # 併發請求數
+NUM_WORKERS = 2  # 啟動的工人數量
+
 
 @pytest.fixture(scope="module")
 def setup_stress_test_environment():
-    """ 在所有測試前，清理、建立目錄、啟動後端服務 """
+    """在所有測試前，清理、建立目錄、啟動後端服務"""
     # 確保 data 目錄存在
     db_dir = os.path.dirname(DB_PATH)
     os.makedirs(db_dir, exist_ok=True)
@@ -26,12 +28,13 @@ def setup_stress_test_environment():
     if os.path.exists(DB_PATH):
         os.remove(DB_PATH)
 
-    os.environ['DB_PATH'] = DB_PATH
+    os.environ["DB_PATH"] = DB_PATH
 
     # 啟動 API 伺服器
     api_server = subprocess.Popen(
         ["uvicorn", "src.prometheus.entrypoints.query_gateway:app", "--port", "8000"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     # 啟動工人
     workers = [
@@ -39,9 +42,9 @@ def setup_stress_test_environment():
         for _ in range(NUM_WORKERS)
     ]
 
-    time.sleep(3) # 等待服務啟動
+    time.sleep(3)  # 等待服務啟動
 
-    yield # 執行測試
+    yield  # 執行測試
 
     # 測試結束後，清理所有進程
     api_server.terminate()
@@ -53,10 +56,12 @@ def setup_stress_test_environment():
     if os.path.exists(DB_PATH):
         os.remove(DB_PATH)
 
+
 async def hardware_monitor(stop_event):
-    """ 背景硬體監控任務 """
+    """背景硬體監控任務"""
     # 延遲導入以避免在 pytest 收集期間出錯
     from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
+
     queue = SQLiteQueue(DB_PATH)
     while not stop_event.is_set():
         # 獲取活躍的 worker 數量 (這是一個簡化的範例)
@@ -68,10 +73,11 @@ async def hardware_monitor(stop_event):
         except asyncio.CancelledError:
             break
 
+
 @pytest.mark.stress
 @pytest.mark.asyncio
 async def test_high_concurrency_workload(setup_stress_test_environment):
-    """ 壓力測試主函數 """
+    """壓力測試主函數"""
     print("\n--- 🚀 開始壓力測試 ---")
 
     # 啟動硬體監控
@@ -91,7 +97,7 @@ async def test_high_concurrency_workload(setup_stress_test_environment):
                 try:
                     # 使用正確的端點 /api/v1/backtest/run
                     response = await client.post("/api/v1/backtest/run", json=payload)
-                    response.raise_for_status() # 確保請求成功
+                    response.raise_for_status()  # 確保請求成功
                     return response
                 except httpx.RequestError as e:
                     print(f"請求錯誤: {e}")
@@ -100,7 +106,7 @@ async def test_high_concurrency_workload(setup_stress_test_environment):
         tasks = [submit_task(i) for i in range(NUM_TASKS)]
         responses = await asyncio.gather(*tasks)
 
-    task_ids = [r.json()['task_id'] for r in responses if r and r.status_code == 200]
+    task_ids = [r.json()["task_id"] for r in responses if r and r.status_code == 200]
     print(f"✅ {len(task_ids)} 個任務已成功提交。")
 
     # 如果沒有任務成功提交，測試就沒有意義了
@@ -113,7 +119,11 @@ async def test_high_concurrency_workload(setup_stress_test_environment):
     while True:
         try:
             # 查詢特定 task_id 的完成狀態
-            completed_count = pd.read_sql_query(f"SELECT COUNT(*) FROM tasks WHERE status = 'completed' AND task_id IN ({','.join(['?']*len(task_ids))})", conn, params=task_ids).iloc[0, 0]
+            completed_count = pd.read_sql_query(
+                f"SELECT COUNT(*) FROM tasks WHERE status = 'completed' AND task_id IN ({','.join(['?']*len(task_ids))})",
+                conn,
+                params=task_ids,
+            ).iloc[0, 0]
             if completed_count >= len(task_ids):
                 print(f"✅ 所有 {len(task_ids)} 個任務已完成。")
                 break
@@ -130,7 +140,7 @@ async def test_high_concurrency_workload(setup_stress_test_environment):
     try:
         await asyncio.wait_for(monitor_task, timeout=2.0)
     except asyncio.TimeoutError:
-        monitor_task.cancel() # 如果無法正常停止，則取消它
+        monitor_task.cancel()  # 如果無法正常停止，則取消它
 
     # --- 生成報告 ---
     print("\n--- 📊 壓力測試報告 ---")
@@ -143,38 +153,36 @@ async def test_high_concurrency_workload(setup_stress_test_environment):
         df_perf = pd.read_sql_query("SELECT * FROM performance_logs", conn)
         if not df_perf.empty:
             print("\n任務處理時間分析 (秒):")
-            print(df_perf['duration'].describe())
+            print(df_perf["duration"].describe())
         else:
             print("\n沒有可用的性能日誌。")
     except pd.io.sql.DatabaseError:
         print("\n無法讀取性能日誌。")
-
 
     # 硬體分析
     try:
         df_hw = pd.read_sql_query("SELECT * FROM hardware_logs", conn)
         if not df_hw.empty:
             print("\n硬體資源使用分析:")
-            print(df_hw[['cpu_percent', 'ram_percent']].describe())
+            print(df_hw[["cpu_percent", "ram_percent"]].describe())
 
             # 繪製圖表
             fig, ax1 = plt.subplots(figsize=(12, 6))
-            ax1.set_xlabel('時間 (秒)')
-            ax1.set_ylabel('CPU 使用率 (%)', color='tab:red')
+            ax1.set_xlabel("時間 (秒)")
+            ax1.set_ylabel("CPU 使用率 (%)", color="tab:red")
             # 計算相對時間
-            relative_time = df_hw['timestamp'] - df_hw['timestamp'].min()
-            ax1.plot(relative_time, df_hw['cpu_percent'], color='tab:red', label='CPU Usage')
-            ax1.tick_params(axis='y', labelcolor='tab:red')
-            ax1.grid(True, axis='y', linestyle='--', alpha=0.7)
-
+            relative_time = df_hw["timestamp"] - df_hw["timestamp"].min()
+            ax1.plot(relative_time, df_hw["cpu_percent"], color="tab:red", label="CPU Usage")
+            ax1.tick_params(axis="y", labelcolor="tab:red")
+            ax1.grid(True, axis="y", linestyle="--", alpha=0.7)
 
             ax2 = ax1.twinx()
-            ax2.set_ylabel('RAM 使用率 (%)', color='tab:blue')
-            ax2.plot(relative_time, df_hw['ram_percent'], color='tab:blue', label='RAM Usage')
-            ax2.tick_params(axis='y', labelcolor='tab:blue')
+            ax2.set_ylabel("RAM 使用率 (%)", color="tab:blue")
+            ax2.plot(relative_time, df_hw["ram_percent"], color="tab:blue", label="RAM Usage")
+            ax2.tick_params(axis="y", labelcolor="tab:blue")
 
             fig.tight_layout()
-            plt.title('壓力測試期間系統資源使用圖')
+            plt.title("壓力測試期間系統資源使用圖")
             plt.legend()
             report_path = "stress_test_report.png"
             plt.savefig(report_path)
@@ -183,7 +191,6 @@ async def test_high_concurrency_workload(setup_stress_test_environment):
             print("\n沒有可用的硬體日誌。")
     except pd.io.sql.DatabaseError:
         print("\n無法讀取硬體日誌。")
-
 
     conn.close()
     assert total_duration > 0, "測試持續時間應大於零"

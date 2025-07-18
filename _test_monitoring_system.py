@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-import subprocess
-import time
-import sys
 import os
 import re
-from playwright.sync_api import sync_playwright, expect
+import subprocess
+import sys
+import time
+
+from playwright.sync_api import expect, sync_playwright
 
 SERVICE_URL = "http://127.0.0.1:8000/"
 DB_FILE = "tasks.sqlite"

@@ -1,15 +1,13 @@
 import time
 
+from prometheus.core.logging.log_manager import LogManager
 from prometheus.core.queue.sqlite_queue import SQLiteQueue
 from prometheus.services.backtesting_service import BacktestingService
-from prometheus.core.logging.log_manager import LogManager
 
 POISON_PILL = "STOP_WORKING"
 
 
-def backtest_worker_loop(
-    task_queue: SQLiteQueue, results_queue: SQLiteQueue, price_data, worker_id: int
-):
+def backtest_worker_loop(task_queue: SQLiteQueue, results_queue: SQLiteQueue, price_data, worker_id: int):
     """
     一個遵守鋼鐵契約的回測工作者：永不放棄，直到收到毒丸。
     """

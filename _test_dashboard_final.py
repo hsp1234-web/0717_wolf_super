@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import subprocess
-import time
-import requests
 import sys
+import time
+
+import requests
 
 SERVICE_URL = "http://127.0.0.1:8000/"
 STARTUP_TIMEOUT = 15
@@ -12,7 +13,7 @@ server_process = subprocess.Popen(["poetry", "run", "python", "run.py", "dashboa
 
 try:
     print(f"戰報：等待服務啟動，最長 {STARTUP_TIMEOUT} 秒...")
-    time.sleep(STARTUP_TIMEOUT) # 給予足夠的啟動時間
+    time.sleep(STARTUP_TIMEOUT)  # 給予足夠的啟動時間
 
     print(f"戰報：正在向 {SERVICE_URL} 發送請求...")
     response = requests.get(SERVICE_URL, timeout=5)

@@ -2,20 +2,24 @@
 """
 演化室：使用遺傳演算法來發現高效的交易策略。
 """
+
 import random
 from typing import List, Tuple
+
 import numpy as np
-
 from deap import base, creator, tools
-
-from prometheus.services.backtesting_service import BacktestingService
 from prometheus.models.strategy_models import Strategy
+from prometheus.services.backtesting_service import BacktestingService
+
 
 class EvolutionChamber:
     """
     一個「演化室」，將因子庫轉化為基因池，並使用遺傳演算法進行策略演化。
     """
-    def __init__(self, backtesting_service: BacktestingService, available_factors: List[str], target_asset: str = 'SPY'):
+
+    def __init__(
+        self, backtesting_service: BacktestingService, available_factors: List[str], target_asset: str = "SPY"
+    ):
         """
         初始化演化室。
 
@@ -27,7 +31,7 @@ class EvolutionChamber:
         self.backtester = backtesting_service
         self.available_factors = available_factors
         self.target_asset = target_asset
-        self.num_factors_to_select = 5 # 暫定每個策略由5個因子構成
+        self.num_factors_to_select = 5  # 暫定每個策略由5個因子構成
 
         # --- DEAP 核心設定 ---
         # 確保 FitnessMax 和 Individual 只被創建一次，避免在多個實例中重複創建導致錯誤
@@ -57,7 +61,7 @@ class EvolutionChamber:
         strategy_to_test = Strategy(
             factors=selected_factors,
             weights={factor: 1.0 / len(selected_factors) for factor in selected_factors},
-            target_asset=self.target_asset # 使用演化室指定的目標資產
+            target_asset=self.target_asset,  # 使用演化室指定的目標資產
         )
 
         # 3. 執行回測以獲得績效
@@ -71,7 +75,9 @@ class EvolutionChamber:
         設定 DEAP 的 toolbox，定義基因、個體、族群的生成規則與演化算子。
         """
         # 定義「基因」：一個代表因子索引的整數
-        self.toolbox.register("factor_indices", random.sample, range(len(self.available_factors)), self.num_factors_to_select)
+        self.toolbox.register(
+            "factor_indices", random.sample, range(len(self.available_factors)), self.num_factors_to_select
+        )
 
         # 定義「個體」：由一組不重複的因子索引構成
         self.toolbox.register("individual", tools.initIterate, creator.Individual, self.toolbox.factor_indices)
@@ -102,7 +108,7 @@ class EvolutionChamber:
             tools.HallOfFame: 包含演化過程中發現的最優個體。
         """
         pop = self.toolbox.population(n=n_pop)
-        hof = tools.HallOfFame(1) # 名人堂，只儲存最優的一個個體
+        hof = tools.HallOfFame(1)  # 名人堂，只儲存最優的一個個體
         stats = tools.Statistics(lambda ind: ind.fitness.values)
         stats.register("avg", np.mean)
         stats.register("std", np.std)

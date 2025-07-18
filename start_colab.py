@@ -1,7 +1,9 @@
 import os
 import subprocess
 import time
-from IPython.display import display, HTML
+
+from IPython.display import HTML, display
+
 
 def run_command(command):
     """執行一個 shell 命令並打印輸出"""

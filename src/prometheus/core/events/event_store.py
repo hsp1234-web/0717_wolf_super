@@ -83,7 +83,5 @@ class PersistentEventStream:
 
     async def get_all_checkpoints(self) -> dict[str, int]:
         """獲取所有消費者的檢查點。"""
-        cursor = await self._conn.execute(
-            "SELECT consumer_id, last_processed_id FROM consumer_checkpoints"
-        )
+        cursor = await self._conn.execute("SELECT consumer_id, last_processed_id FROM consumer_checkpoints")
         return dict(await cursor.fetchall())

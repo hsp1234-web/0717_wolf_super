@@ -1,6 +1,8 @@
-import yfinance as yf
 import pandas as pd
+import yfinance as yf
+
 from .base import BaseClient
+
 
 class YFinanceClient(BaseClient):
     def fetch_data(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:

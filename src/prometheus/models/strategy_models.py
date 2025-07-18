@@ -2,8 +2,10 @@
 """
 本模組定義了策略回測所需的核心數據契約。
 """
+
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import Dict, List
+
 
 @dataclass
 class Strategy:
@@ -15,9 +17,11 @@ class Strategy:
         weights (Dict[str, float]): 各個因子的權重。
         target_asset (str): 交易的目標資產代碼，例如 'SPY'。
     """
+
     factors: List[str]
     weights: Dict[str, float]
-    target_asset: str = 'SPY'
+    target_asset: str = "SPY"
+
 
 @dataclass
 class PerformanceReport:
@@ -30,6 +34,7 @@ class PerformanceReport:
         max_drawdown (float): 最大回撤。
         total_trades (int): 總交易次數。
     """
+
     sharpe_ratio: float = 0.0
     annualized_return: float = 0.0
     max_drawdown: float = 0.0

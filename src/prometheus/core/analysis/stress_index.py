@@ -1,11 +1,10 @@
 import logging
 
-from prometheus.core.logging.log_manager import LogManager
 import pandas as pd
 import plotly.graph_objects as go
-
 from prometheus.core.clients.fred import FredClient
 from prometheus.core.clients.nyfed import NYFedClient
+from prometheus.core.logging.log_manager import LogManager
 
 logger = LogManager.get_instance().get_logger("StressIndexCalculator")
 
@@ -13,17 +12,19 @@ logger = LogManager.get_instance().get_logger("StressIndexCalculator")
 # --- MOCK CLIENTS FOR TESTING ---
 class MockFredClient:
     def fetch_data(self, symbol, **kwargs):
-        dates = pd.to_datetime(['2025-07-15', '2025-07-16', '2025-07-17'])
+        dates = pd.to_datetime(["2025-07-15", "2025-07-16", "2025-07-17"])
         if symbol == "VIXCLS":
-            return pd.DataFrame({'VIXCLS': [12.0, 13.0, 12.5]}, index=dates)
+            return pd.DataFrame({"VIXCLS": [12.0, 13.0, 12.5]}, index=dates)
         if symbol == "T10Y2Y":
-            return pd.DataFrame({'T10Y2Y': [0.2, 0.21, 0.19]}, index=dates)
+            return pd.DataFrame({"T10Y2Y": [0.2, 0.21, 0.19]}, index=dates)
         return pd.DataFrame()
+
 
 class MockNYFedClient:
     def fetch_data(self, **kwargs):
-        dates = pd.to_datetime(['2025-07-15', '2025-07-16', '2025-07-17'])
-        return pd.DataFrame({'Total_Positions': [5e9, 5.1e9, 5.05e9]}, index=dates)
+        dates = pd.to_datetime(["2025-07-15", "2025-07-16", "2025-07-17"])
+        return pd.DataFrame({"Total_Positions": [5e9, 5.1e9, 5.05e9]}, index=dates)
+
 
 # --- REAL IMPLEMENTATION ---
 class StressIndexCalculator:
@@ -85,11 +86,22 @@ class StressIndexCalculator:
 
     def plot_stress_index(self, stress_index, zscore_components):
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=stress_index.index, y=stress_index, mode='lines', name='Stress Index', line=dict(color='red', width=2)))
+        fig.add_trace(
+            go.Scatter(
+                x=stress_index.index, y=stress_index, mode="lines", name="Stress Index", line=dict(color="red", width=2)
+            )
+        )
         for col in zscore_components.columns:
-            fig.add_trace(go.Scatter(x=zscore_components.index, y=zscore_components[col], mode='lines', name=col, visible='legendonly'))
-        fig.update_layout(title="Financial Stress Index and Components", xaxis_title="Date", yaxis_title="Z-Score / Index Value")
+            fig.add_trace(
+                go.Scatter(
+                    x=zscore_components.index, y=zscore_components[col], mode="lines", name=col, visible="legendonly"
+                )
+            )
+        fig.update_layout(
+            title="Financial Stress Index and Components", xaxis_title="Date", yaxis_title="Z-Score / Index Value"
+        )
         fig.show()
+
 
 if __name__ == "__main__":
     calculator = StressIndexCalculator()

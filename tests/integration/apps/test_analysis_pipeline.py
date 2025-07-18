@@ -17,9 +17,7 @@ try:
     )  # tests/integration/apps/test_analysis_pipeline.py -> project_root
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
-    print(
-        f"INFO (test_analysis_pipeline.py): 已將專案根目錄 {project_root} 添加到 sys.path"
-    )
+    print(f"INFO (test_analysis_pipeline.py): 已將專案根目錄 {project_root} 添加到 sys.path")
 except NameError:
     project_root = Path(os.getcwd()).resolve()
     if str(project_root) not in sys.path:
@@ -38,22 +36,14 @@ except NameError:
 )
 class TestAnalysisPipelineRunScript(unittest.TestCase):
     def setUp(self):
-        self.pipeline_script_path = (
-            project_root / "apps" / "analysis_pipeline" / "run.py"
-        )
+        self.pipeline_script_path = project_root / "apps" / "analysis_pipeline" / "run.py"
         self.assertTrue(
             self.pipeline_script_path.exists(),
             f"Pipeline script not found at {self.pipeline_script_path}",
         )
-        self.test_db_path = (
-            project_root / "data_workspace" / "test_pipeline_temp.duckdb"
-        )
-        self.test_analytics_mart_db_path = (
-            project_root / "test_pipeline_analytics_mart_temp.duckdb"
-        )
-        self.test_legacy_quadrant_db_path = (
-            project_root / "data" / "test_pipeline_legacy_quadrant_temp.duckdb"
-        )
+        self.test_db_path = project_root / "data_workspace" / "test_pipeline_temp.duckdb"
+        self.test_analytics_mart_db_path = project_root / "test_pipeline_analytics_mart_temp.duckdb"
+        self.test_legacy_quadrant_db_path = project_root / "data" / "test_pipeline_legacy_quadrant_temp.duckdb"
 
         # 清理舊的測試資料庫檔案 (如果存在)
         for db_p in [
@@ -147,9 +137,7 @@ class TestAnalysisPipelineRunScript(unittest.TestCase):
         args = ["--help"]
         # run_pipeline 方法現在是 TestAnalysisPipelineRunScript 的一部分
         result = self.run_pipeline(args)  # 使用 self.run_pipeline
-        self.assertEqual(
-            result.returncode, 0, f"Pipeline --help 執行失敗: {result.stderr}"
-        )
+        self.assertEqual(result.returncode, 0, f"Pipeline --help 執行失敗: {result.stderr}")
         self.assertIn("usage: run.py [-h]", result.stdout)
 
 
@@ -169,9 +157,7 @@ class TestAnalysisPipelineMainFunction(unittest.TestCase):
 
     @patch("apps.analysis_pipeline.run.DailyMarketAnalysisEngine")
     @patch("apps.analysis_pipeline.run.DBManager")
-    def test_main_calls_daily_market_analyzer(
-        self, MockDBManager, MockDailyMarketAnalysisEngine
-    ):
+    def test_main_calls_daily_market_analyzer(self, MockDBManager, MockDailyMarketAnalysisEngine):
         print("\n--- 測試 pipeline main(): daily_market ---")
         mock_db_instance = MockDBManager.return_value
         mock_analyzer_instance = MockDailyMarketAnalysisEngine.return_value
@@ -292,9 +278,7 @@ class TestAnalysisPipelineMainFunction(unittest.TestCase):
     @patch("apps.analysis_pipeline.run.InstitutionalAnalyzer")
     # 移除對 FinMindClient 的 patch，因為我們 mock 了 InstitutionalAnalyzer 類本身，
     # 其 __init__ 中的 FinMindClient 實例化不會發生在被 mock 的版本中。
-    def test_main_calls_institutional_analyzer(
-        self, MockInstitutionalAnalyzer
-    ):  # 只接收一個 mock 參數
+    def test_main_calls_institutional_analyzer(self, MockInstitutionalAnalyzer):  # 只接收一個 mock 參數
         print("\n--- 測試 pipeline main(): institutional ---")
         # import pandas as pd # 如果不需要 mock FinMindClient 的返回值，則可能不需要
 
@@ -350,9 +334,7 @@ class TestAnalysisPipelineMainFunction(unittest.TestCase):
             analysis_run.main()
 
         MockDBManager.assert_called_once_with(db_path="dummy_main.db")
-        MockStrategicAnalyzer.assert_called_once_with(
-            db_manager=mock_db_instance, analysis_date_str="2023-04-01"
-        )
+        MockStrategicAnalyzer.assert_called_once_with(db_manager=mock_db_instance, analysis_date_str="2023-04-01")
         mock_analyzer_instance.run.assert_called_once()
 
     def test_main_invalid_analyzer_name(self):

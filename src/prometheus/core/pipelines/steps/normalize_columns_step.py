@@ -1,12 +1,13 @@
 # src/prometheus/core/pipelines/steps/normalize_columns_step.py
 
-import pandas as pd
-from typing import Dict, Any
 import logging
+from typing import Any, Dict
 
+import pandas as pd
 from prometheus.core.pipelines.base_step import BaseStep
 
 logger = logging.getLogger(__name__)
+
 
 class NormalizeColumnsStep(BaseStep):
     """
