@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-「作戰工人」(Real Worker) 的核心邏輯。
-此模組已被重構，以便於進行導入測試和未來的擴展。
+「作戰工人」(Real Worker) 的核心邏輯 v2.0 (單一核心版)。
+
+此工人現在是一個純粹的指令執行者。它從隊列中獲取任務，
+並將其分派給 `PrometheusService` 來處理實際的業務邏輯。
 """
 
 import logging
 import os
-import random  # 用於模擬相關性分析
 import signal
-import sqlite3
 import time
 
-from src.prometheus.core.constants import DB_PATH
+from src.prometheus.core.clients.client_factory import ClientFactory
+from src.prometheus.core.db.data_warehouse import DataWarehouse
 from src.prometheus.core.logging_config import setup_logging
+from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
+from src.prometheus.core.services import PrometheusService
 
 # --- 全局變數和信號處理 ---
 shutdown_signal = False
@@ -27,120 +30,69 @@ def handle_signal(signum, frame):
 
 class RealWorkerApp:
     """
-    「作戰工人」應用程式的封裝。
-    將工人的邏輯封裝在一個類中，使其更容易被測試和管理。
+    「作戰工人」應用程式 v2.0
+
+    此版本將所有業務邏輯委託給 PrometheusService。
     """
 
     def __init__(self):
         self.env = os.getenv("PROMETHEUS_ENV", "production")
-        setup_logging(process_name="WORKER")
+        setup_logging(process_name="WORKER_V2")
         logging.info(f"工人應用程式已初始化，模式: {self.env}")
 
-        # 根據環境動態導入 DataEngine
-        if self.env == "test":
-            from src.prometheus.core.analysis.mock_data_engine import MockDataEngine as DataEngine
+        # 初始化所有依賴項
+        db_path = os.getenv("DB_PATH", "data/prometheus.db")
+        warehouse_path = os.getenv("WAREHOUSE_PATH", "data/warehouse.duckdb")
+
+        self.queue = SQLiteQueue(db_path)
+        self.warehouse = DataWarehouse(warehouse_path)
+        self.client_factory = ClientFactory()  # 可根據需要進行擴展
+
+        # 創建核心服務的單一實例
+        self.service = PrometheusService(
+            queue=self.queue,
+            warehouse=self.warehouse,
+            client_factory=self.client_factory,
+        )
+        logging.info("PrometheusService 已成功初始化。")
+
+    def _dispatch_task(self, task_id: str, task_type: str):
+        """
+        根據任務類型將任務分派給核心服務。
+        """
+        logging.info(f"任務 {task_id}: 正在分派類型為 '{task_type}' 的任務...")
+
+        handler_map = {
+            "stress_index_analysis": self.service.run_stress_index_analysis,
+            "factor_correlation_analysis": self.service.run_factor_correlation_analysis,
+        }
+
+        handler = handler_map.get(task_type)
+
+        if handler:
+            # 傳遞 task_id，如果處理程序需要它
+            if task_type == "stress_index_analysis":
+                 return handler(task_id=task_id, env=self.env)
+            else:
+                 return handler(task_id=task_id)
         else:
-            from src.prometheus.core.analysis.data_engine import DataEngine
-        self.DataEngine = DataEngine
-
-        from src.prometheus.core.analysis.stress_index import StressIndexCalculator as StressIndex
-
-        self.StressIndex = StressIndex
-
-    def _execute_stress_index_analysis(self, task_id):
-        """執行壓力指數分析任務。"""
-        logging.info(f"任務 {task_id}: 開始執行壓力指數分析...")
-        try:
-            if self.env == "test":
-                from src.prometheus.core.analysis.stress_index import MockFredClient, MockNYFedClient
-
-                analyzer = self.StressIndex(fred_client=MockFredClient(), nyfed_client=MockNYFedClient())
-            else:
-                analyzer = self.StressIndex()
-
-            stress_index_series = analyzer.calculate_stress_index(force_refresh=True)
-            if not stress_index_series.empty:
-                latest_value = stress_index_series.iloc[-1]
-                index_value = 73.17 if self.env == "test" else latest_value
-                result_message = f"分析完成。指數為: {index_value:.2f}"
-                status = "completed"
-            else:
-                logging.error("CRITICAL_FAILURE: calculate_stress_index returned an empty series.")
-                result_message = "分析失敗：無法計算指數，數據不足。"
-                status = "failed"
-        except Exception as e:
-            logging.error(f"執行壓力指數分析時發生未預期錯誤: {e}", exc_info=True)
-            result_message = f"分析失敗: {str(e)}"
-            status = "failed"
-        return status, result_message
-
-    def _execute_factor_correlation_analysis(self, task_id):
-        """模擬一個因子相關性分析任務。"""
-        logging.info(f"任務 {task_id}: 開始執行因子相關性分析...")
-        time.sleep(random.uniform(0.5, 1.5))  # 模擬計算耗時
-        correlation = random.uniform(-0.9, 0.9)
-        result_message = f"分析完成。VIX 與 SKEW 的滾動相關性為: {correlation:.4f}"
-        status = "completed"
-        logging.info(f"任務 {task_id}: 相關性分析成功。")
-        return status, result_message
-
-    def _get_pending_task(self):
-        """從資料庫中獲取一個待處理的任務。"""
-        task_info = None
-        try:
-            time.sleep(random.uniform(0.1, 0.5))
-            with sqlite3.connect(DB_PATH, timeout=10) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                conn.execute("BEGIN IMMEDIATE")
-                try:
-                    cursor.execute("SELECT task_id, task_type FROM tasks WHERE status = 'pending' LIMIT 1")
-                    task = cursor.fetchone()
-                    if task:
-                        cursor.execute("UPDATE tasks SET status = 'running' WHERE task_id = ?", (task["task_id"],))
-                        conn.commit()
-                        task_info = {"id": task["task_id"], "type": task["task_type"]}
-                    else:
-                        conn.commit()  # 即使沒有任務也要 commit 來釋放鎖
-                except Exception as e:
-                    conn.rollback()
-                    logging.error(f"領取任務時發生資料庫錯誤: {e}")
-        except sqlite3.OperationalError as e:
-            if "database is locked" in str(e):
-                logging.warning("資料庫被鎖定，將在下一輪重試。")
-            else:
-                logging.error(f"無法連接或操作資料庫: {e}。等待後重試...")
-                time.sleep(5)
-        return task_info
-
-    def _update_task_status(self, task_id, status, result):
-        """更新資料庫中的任務狀態。"""
-        try:
-            with sqlite3.connect(DB_PATH, timeout=10) as conn:
-                cursor = conn.cursor()
-                cursor.execute("UPDATE tasks SET status = ?, result = ? WHERE task_id = ?", (status, result, task_id))
-                conn.commit()
-        except sqlite3.OperationalError as e:
-            logging.error(f"更新任務 {task_id} 狀態時資料庫被鎖定: {e}。該次結果可能丟失。")
+            logging.warning(f"任務 {task_id}: 找不到類型為 '{task_type}' 的處理程序。")
+            return "failed", f"未知的任務類型: {task_type}"
 
     def main_loop(self):
         """工人的主執行循環。"""
         logging.info("工人主循環已啟動。")
         while not shutdown_signal:
-            task_info = self._get_pending_task()
+            task_info = self.queue.get()  # 使用正確的 get 方法
 
             if task_info:
-                task_id, task_type = task_info["id"], task_info["type"]
-                final_status, result = "failed", f"未知的任務類型: {task_type}"
+                task_id, task_type, payload = task_info
+                final_status, result_message = self._dispatch_task(task_id, task_type)
+                # 將結果打包成字典
+                result_payload = {"message": result_message}
+                self.queue.update_task(task_id, final_status, result_payload)
 
-                if task_type == "stress_index_analysis":
-                    final_status, result = self._execute_stress_index_analysis(task_id)
-                elif task_type == "factor_correlation_analysis":
-                    final_status, result = self._execute_factor_correlation_analysis(task_id)
-
-                self._update_task_status(task_id, final_status, result)
-
-            time.sleep(1)
+            time.sleep(1)  # 短暫休眠以避免 CPU 過度使用
         logging.info("工人主循環已結束。")
 
     def run(self):
@@ -152,7 +104,6 @@ class RealWorkerApp:
 
 
 # --- 可導入的應用程式實例 ---
-# 這是 ignition_test.py 將要檢查的物件
 real_worker_app = RealWorkerApp()
 
 
