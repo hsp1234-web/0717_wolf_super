@@ -1,96 +1,439 @@
 <!DOCTYPE html>
-<html lang="zh-Hant" class="dark">
+<html lang="zh-Hant" class="">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作戰指揮中心 v2.4 - 九頭蛇</title>
+    <title>善狼研究平台 v8.0 (Live API)</title>
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google Fonts (Noto Sans TC) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- 引入 Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; }
+        .dark body { background-color: #131316; color: #E8EAED; }
+        body { background-color: #F8F9FA; color: #202124; }
+        .gemini-panel { background-color: #FFFFFF; border: 1px solid #DADCE0; box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 6px rgba(0,0,0,0.04); }
+        .dark .gemini-panel { background-color: #202124; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .gemini-button-primary { background-color: #1A73E8; color: #FFFFFF; transition: all 0.3s ease; }
+        .gemini-button-primary:hover:not(:disabled) { background-color: #185ABC; }
+        .gemini-button-primary:disabled { background-color: #9ABAF3; cursor: not-allowed; }
+        .dark .gemini-button-primary { background: linear-gradient(90deg, #1A73E8, #4285F4); box-shadow: 0 4px 15px rgba(66, 133, 244, 0.2); }
+        .dark .gemini-button-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(66, 133, 244, 0.3); }
+        .dark .gemini-button-primary:disabled { background: #2E3A52; box-shadow: none; transform: none; }
+        .gemini-gradient-text { background: linear-gradient(90deg, #1A73E8, #5856D6, #D93075); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .dark .gemini-gradient-text { background: linear-gradient(90deg, #89B3F8, #A688FA, #F382B1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .change-up { color: #EA4335; } .dark .change-up { color: #F28B82; }
+        .change-down { color: #34A853; } .dark .change-down { color: #81C995; }
+        .tab { cursor: pointer; padding: 0.75rem 1rem; border-bottom: 2px solid transparent; color: #5F6368; transition: all 0.2s ease; }
+        .dark .tab { color: #9AA0A6; }
+        .tab:hover { background-color: rgba(0,0,0,0.04); } .dark .tab:hover { background-color: rgba(255,255,255,0.08); }
+        .tab.active { border-bottom-color: #1A73E8; color: #1A73E8; font-weight: 600; }
+        .dark .tab.active { border-bottom-color: #89B3F8; color: #89B3F8; }
+        .chat-bubble { max-width: 90%; padding: 0.75rem 1rem; border-radius: 1rem; }
+        .chat-bubble-user { background-color: #E8F0FE; align-self: flex-end; } .dark .chat-bubble-user { background-color: #2E3A52; }
+        .chat-bubble-ai { background-color: #F1F3F4; align-self: flex-start; } .dark .chat-bubble-ai { background-color: #3C4043; }
+        .blinking-cursor { animation: blink 1s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+    </style>
 </head>
-<body class="bg-gray-900 text-gray-200 font-sans">
-    <div class="container mx-auto p-4 md:p-8">
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 w-full max-w-4xl mx-auto space-y-8">
-            <h1 class="text-3xl font-bold text-center text-cyan-400">普羅米修斯 - 作戰指揮中心</h1>
-
-            <!-- 指令下達區域 -->
-            <div class="border-t border-gray-700 pt-6 text-center space-x-4">
-                <button id="stress-index-btn" class="task-btn bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg">計算市場壓力指數</button>
-                <button id="correlation-btn" class="task-btn bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg">分析因子相關性</button>
+<body class="min-h-screen p-4 sm:p-6 lg:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-3">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="starGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#89B3F8;" /><stop offset="100%" style="stop-color:#A688FA;" /></linearGradient></defs><path d="M12 2L13.55 8.45L20 10L13.55 11.55L12 18L10.45 11.55L4 10L10.45 8.45L12 2Z" fill="url(#starGradient)"/></svg>
+                <h1 class="text-xl sm:text-2xl font-bold">善狼 <span class="gemini-gradient-text">研究平台</span></h1>
             </div>
-            <div id="task-status-message" class="mt-4 text-sm text-center text-gray-400 h-5">請下達指令</div>
+            <button id="theme-toggle" class="p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"><svg id="theme-toggle-dark-icon" class="hidden h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg><svg id="theme-toggle-light-icon" class="hidden h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm-.707 10.607a1 1 0 011.414 0l.707-.707a1 1 0 11-1.414-1.414l-.707.707a1 1 0 010 1.414zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg></button>
+        </header>
 
-            <!-- ... (歷史任務與系統資源面板保持不變) ... -->
-        </div>
+        <main class="gemini-panel rounded-xl">
+            <div class="border-b border-gray-200 dark:border-gray-700">
+                <nav id="tabs" class="flex space-x-2" aria-label="Tabs">
+                    <div class="tab active" data-tab="shan">週報深度覆盤</div>
+                    <div class="tab" data-tab="snapshot">市場數據總覽</div>
+                    <div class="tab" data-tab="lab">策略回測中心</div>
+                </nav>
+            </div>
+
+            <div class="p-4 sm:p-6">
+                <!-- 週報深度覆盤 -->
+                <div id="tab-content-shan" class="tab-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                        <div class="lg:col-span-2 space-y-4">
+                            <h2 class="text-xl font-semibold">研究資料庫</h2>
+                            <div>
+                                <label for="week-selector" class="block text-sm font-medium mb-1">選擇分析週次</label>
+                                <select id="week-selector" class="w-full p-2 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600" disabled><option>載入中...</option></select>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold mb-2">本週原始文本</h3>
+                                <div id="raw-content" class="h-64 overflow-y-auto p-3 bg-gray-100 dark:bg-gray-800 rounded-md text-xs font-mono whitespace-pre-wrap">載入中...</div>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold mb-2">載入大師觀點 (可選)</h3>
+                                <div id="master-insights-selector" class="space-y-2">載入中...</div>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-3">
+                             <h2 class="text-xl font-semibold mb-4">AI 協同分析室</h2>
+                             <div id="chat-window" class="h-[36rem] overflow-y-auto p-4 bg-gray-100 dark:bg-gray-800/50 rounded-lg flex flex-col space-y-4"></div>
+                             <div class="mt-4">
+                                <textarea id="chat-input" class="w-full p-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" rows="3" placeholder="請在此輸入您的指令，或直接點擊按鈕提交分析..."></textarea>
+                                <button id="send-analysis-button" class="mt-2 w-full gemini-button-primary font-bold py-2 px-4 rounded-lg">提交分析請求</button>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 市場數據總覽 -->
+                <div id="tab-content-snapshot" class="tab-content hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h2 class="text-xl font-semibold">市場因子總覽</h2>
+                            <p id="data-timestamp" class="text-sm text-gray-500 dark:text-gray-400">正在從後端獲取數據...</p>
+                        </div>
+                    </div>
+                    <div id="factors-list" class="space-y-2"></div>
+                </div>
+
+                <!-- 策略回測中心 -->
+                <div id="tab-content-lab" class="tab-content hidden">
+                    <h2 class="text-xl font-semibold mb-6">策略回測中心</h2>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <h3 class="font-semibold mb-2">策略編輯器 (Python)</h3>
+                            <textarea id="strategy-code" class="w-full h-64 p-2 font-mono text-sm bg-gray-100 dark:bg-gray-800 rounded-md border border-gray-300 dark:border-gray-600"># 範例策略: 移動平均線交叉
+def initialize(context):
+    context.asset = "BTC"
+    context.fast_ma = 5
+    context.slow_ma = 20
+
+def handle_data(context, data):
+    # 這是簡化的範例，真實回測引擎需要更複雜的數據處理
+    fast_ma = data.history(context.asset, 'price', context.fast_ma, '1d').mean()
+    slow_ma = data.history(context.asset, 'price', context.slow_ma, '1d').mean()
+
+    if fast_ma > slow_ma:
+        order_target_percent(context.asset, 1)
+    elif fast_ma < slow_ma:
+        order_target_percent(context.asset, 0)</textarea>
+                            <button id="run-backtest-button" class="mt-4 w-full gemini-button-primary font-bold py-2 px-4 rounded-lg">執行策略回測</button>
+                        </div>
+                        <div id="backtest-report-container">
+                            <h3 class="font-semibold mb-2">回測績效報告</h3>
+                            <div class="gemini-panel p-4 rounded-lg border-none">
+                                <div id="backtest-kpis" class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center mb-4">
+                                    <p class="col-span-full text-gray-500">請先執行回測以生成報告。</p>
+                                </div>
+                                <div class="w-full h-52 bg-gray-200 dark:bg-gray-800/50 rounded-lg p-2 flex items-center justify-center">
+                                    <canvas id="backtestChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const stressBtn = document.getElementById('stress-index-btn');
-            const correlationBtn = document.getElementById('correlation-btn');
-            const allButtons = [stressBtn, correlationBtn];
-            const statusMsgElem = document.getElementById('task-status-message');
-            let pollingInterval = null;
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- API 位址 ---
+        const API_BASE_URL = ''; // 如果在同一個服務下，可以留空
 
-            function stopPolling() {
-                if (pollingInterval) {
-                    clearInterval(pollingInterval);
-                    pollingInterval = null;
-                }
+        // --- DOM 元素 ---
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const darkIcon = document.getElementById('theme-toggle-dark-icon');
+        const lightIcon = document.getElementById('theme-toggle-light-icon');
+        const tabsContainer = document.getElementById('tabs');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        // 市場總覽
+        const factorsListContainer = document.getElementById('factors-list');
+        const dataTimestamp = document.getElementById('data-timestamp');
+
+        // 週報覆盤
+        const weekSelector = document.getElementById('week-selector');
+        const rawContentContainer = document.getElementById('raw-content');
+        const masterSelectorContainer = document.getElementById('master-insights-selector');
+        const chatWindow = document.getElementById('chat-window');
+        const chatInput = document.getElementById('chat-input');
+        const sendAnalysisButton = document.getElementById('send-analysis-button');
+
+        // 策略回測
+        const strategyCodeEl = document.getElementById('strategy-code');
+        const runBacktestButton = document.getElementById('run-backtest-button');
+        const backtestReportContainer = document.getElementById('backtest-report-container');
+        const backtestKpisEl = document.getElementById('backtest-kpis');
+        const backtestChartCtx = document.getElementById('backtestChart').getContext('2d');
+        let backtestChartInstance = null;
+
+        // --- 狀態管理 ---
+        let shanJiaLangDataStore = {}; // 用於儲存週報的原始數據
+
+        // --- 通用函數 ---
+        const api = {
+            get: async (endpoint) => {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`);
+                if (!response.ok) throw new Error(`HTTP 錯誤！狀態: ${response.status}`);
+                return response.json();
+            },
+            post: async (endpoint, body) => {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (!response.ok) throw new Error(`HTTP 錯誤！狀態: ${response.status}`);
+                return response.json();
             }
+        };
 
-            async function checkTaskStatus(taskId) {
+        function pollForResult(taskId, onProgress, onComplete, onFail) {
+            onProgress();
+            const intervalId = setInterval(async () => {
                 try {
-                    const response = await fetch(`/api/v1/task_status/${taskId}`);
-                    if (!response.ok) {
-                        stopPolling();
-                        statusMsgElem.textContent = '錯誤：追蹤任務失敗';
-                        allButtons.forEach(btn => btn.disabled = false);
-                        return;
-                    }
-                    const data = await response.json();
-                    if (data.status === 'completed' || data.status === 'failed') {
-                        stopPolling();
-                        // 修正：從 data.result 讀取結果
-                        statusMsgElem.textContent = `任務結果: ${data.result}`;
-                        statusMsgElem.className = data.status === 'completed'
-                            ? 'mt-4 text-sm text-center text-green-400 h-5'
-                            : 'mt-4 text-sm text-center text-red-400 h-5';
-                        allButtons.forEach(btn => btn.disabled = false);
+                    const result = await api.get(`/api/v1/task/result/${taskId}`);
+                    if (result.status === 'completed') {
+                        clearInterval(intervalId);
+                        onComplete(result.result);
+                    } else if (result.status === 'failed') {
+                        clearInterval(intervalId);
+                        onFail(result.result);
                     } else {
-                        statusMsgElem.textContent = `任務正在執行... (狀態: ${data.status})`;
+                        // 仍在處理中 (pending 或 processing)
                     }
                 } catch (error) {
-                    stopPolling();
-                    statusMsgElem.textContent = '錯誤：無法獲取任務狀態';
-                    allButtons.forEach(btn => btn.disabled = false);
+                    clearInterval(intervalId);
+                    onFail({ error: `輪詢結果時發生錯誤: ${error.message}` });
                 }
-            }
+            }, 2000);
+        }
 
-            async function submitTask(taskType) {
-                allButtons.forEach(btn => btn.disabled = true);
-                stopPolling();
-                statusMsgElem.textContent = '指令已發送，正在提交任務...';
-                statusMsgElem.className = 'mt-4 text-sm text-center text-amber-400 h-5';
-
-                try {
-                    const response = await fetch('/api/v1/submit_task', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ task_type: taskType })
-                    });
-                    const result = await response.json();
-                    statusMsgElem.textContent = `任務已提交 (ID: ...${result.task_id.slice(-6)})，開始追蹤...`;
-                    pollingInterval = setInterval(() => checkTaskStatus(result.task_id), 2000);
-                } catch (error) {
-                    statusMsgElem.textContent = '錯誤：提交任務失敗';
-                    allButtons.forEach(btn => btn.disabled = false);
-                }
-            }
-
-            stressBtn.addEventListener('click', () => submitTask('stress_index_analysis'));
-            correlationBtn.addEventListener('click', () => submitTask('factor_correlation_analysis'));
-
-            // ... (所有輪詢啟動邏輯保持不變) ...
+        // --- 深色/淺色模式 ---
+        const applyTheme = (isDark) => {
+            document.documentElement.classList.toggle('dark', isDark);
+            darkIcon.classList.toggle('hidden', !isDark);
+            lightIcon.classList.toggle('hidden', isDark);
+        };
+        themeToggleBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            applyTheme(isDark);
         });
+
+        // --- Tab 切換 ---
+        tabsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('tab')) {
+                tabsContainer.querySelector('.active').classList.remove('active');
+                e.target.classList.add('active');
+                tabContents.forEach(content => content.classList.add('hidden'));
+                document.getElementById(`tab-content-${e.target.dataset.tab}`).classList.remove('hidden');
+            }
+        });
+
+        // --- 市場數據總覽模組 ---
+        function renderSparkline(canvasId, data, change) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const chartColor = document.documentElement.classList.contains('dark')
+                ? (change >= 0 ? '#F28B82' : '#81C995')
+                : (change >= 0 ? '#EA4335' : '#34A853');
+            new Chart(ctx, { type: 'line', data: { labels: data.map((_, i) => i), datasets: [{ data, borderColor: chartColor, borderWidth: 2, pointRadius: 0, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } }, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: false } });
+        }
+
+        async function initMarketSnapshot() {
+            try {
+                const factors = await api.get('/api/v1/market_snapshot');
+                let categoryHtml = '';
+                let currentCategory = null;
+                factors.forEach((factor, index) => {
+                    if (factor.category !== currentCategory) {
+                        if (currentCategory !== null) categoryHtml += `</div></div>`;
+                        currentCategory = factor.category;
+                        categoryHtml += `<div class="p-4"><h3 class="text-lg font-semibold mb-3">${currentCategory}</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+                    }
+                    const changeClass = factor.change >= 0 ? 'change-up' : 'change-down';
+                    const changeSign = factor.change >= 0 ? '▲' : '▼';
+                    categoryHtml += `<div class="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800/50 rounded-lg"><div><p class="text-sm font-medium">${factor.name}</p><p class="text-xl font-bold">${factor.value}</p><p class="text-xs ${changeClass}">${changeSign} ${Math.abs(factor.change)}%</p></div><div class="w-24 h-12"><canvas id="sparkline-${index}"></canvas></div></div>`;
+                });
+                if (currentCategory !== null) categoryHtml += `</div></div>`;
+                factorsListContainer.innerHTML = categoryHtml;
+                factors.forEach((factor, index) => renderSparkline(`sparkline-${index}`, factor.trend, factor.change));
+                const now = new Date();
+                dataTimestamp.textContent = `數據更新時間: ${now.toLocaleTimeString('zh-TW')}`;
+            } catch (error) {
+                factorsListContainer.innerHTML = `<div class="text-center text-red-500 p-4">無法從後端加載數據。錯誤: ${error.message}</div>`;
+                dataTimestamp.textContent = '數據獲取失敗';
+            }
+        }
+
+        // --- 週報覆盤模組 ---
+        function addChatMessage(role, content, isHtml = false) {
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble chat-bubble-${role}`;
+            if (isHtml) {
+                bubble.innerHTML = content;
+            } else {
+                // 將純文本中的換行符轉換為 <br>
+                bubble.innerHTML = content.replace(/\n/g, '<br>');
+            }
+            chatWindow.appendChild(bubble);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            return bubble;
+        }
+
+        async function initShanJiaLang() {
+            try {
+                const data = await api.get('/api/v1/shan_jia_lang/initial_data');
+                shanJiaLangDataStore = data;
+
+                weekSelector.innerHTML = data.week_list.map(week => `<option value="${week}">${week}</option>`).join('');
+                weekSelector.value = data.default_week;
+                weekSelector.disabled = false;
+
+                rawContentContainer.textContent = data.raw_content;
+
+                masterSelectorContainer.innerHTML = data.master_insights.map(master => `
+                    <label class="flex items-center space-x-2 text-sm">
+                        <input type="checkbox" name="master" value="${master.name}" class="rounded">
+                        <span>${master.name}: ${master.content}</span>
+                    </label>
+                `).join('');
+
+                addChatMessage('ai', 'AI 助理已就緒，請提交分析請求。');
+            } catch (error) {
+                rawContentContainer.textContent = `無法載入初始數據: ${error.message}`;
+                addChatMessage('ai', `錯誤: ${error.message}`);
+            }
+        }
+
+        sendAnalysisButton.addEventListener('click', async () => {
+            sendAnalysisButton.disabled = true;
+
+            const selectedMasters = Array.from(masterSelectorContainer.querySelectorAll('input:checked')).map(input => input.value);
+            const payload = {
+                raw_content: rawContentContainer.textContent,
+                selected_masters: selectedMasters
+            };
+
+            let userMessage = `請求分析...\n- 融合大師: ${selectedMasters.join(', ') || '無'}`;
+            if (chatInput.value.trim()) {
+                userMessage += `\n- 補充指令: ${chatInput.value.trim()}`;
+            }
+            addChatMessage('user', userMessage);
+            chatInput.value = '';
+
+            try {
+                const task = await api.post('/api/v1/ai/initial_analysis', payload);
+
+                pollForResult(task.task_id,
+                    () => {
+                        const thinkingBubble = addChatMessage('ai', '正在分析中，請稍候<span class="blinking-cursor">...</span>', true);
+                        sendAnalysisButton.textContent = 'AI 思考中...';
+                        return thinkingBubble;
+                    },
+                    (result) => {
+                        addChatMessage('ai', `**分析摘要**:\n${result.summary}\n\n**策略建議**:\n${result.strategy_suggestion}`);
+                        sendAnalysisButton.disabled = false;
+                        sendAnalysisButton.textContent = '提交分析請求';
+                    },
+                    (error) => {
+                        addChatMessage('ai', `分析失敗: ${error.error}`);
+                        sendAnalysisButton.disabled = false;
+                        sendAnalysisButton.textContent = '提交分析請求';
+                    }
+                );
+            } catch (error) {
+                addChatMessage('ai', `提交任務失敗: ${error.message}`);
+                sendAnalysisButton.disabled = false;
+                sendAnalysisButton.textContent = '提交分析請求';
+            }
+        });
+
+        // --- 策略回測模組 ---
+        function renderBacktestReport(result) {
+            backtestKpisEl.innerHTML = `
+                <div><p class="text-sm text-gray-500">年化報酬</p><p class="text-lg font-bold ${result.annualized_return > 0 ? 'change-up' : 'change-down'}">${result.annualized_return.toFixed(2)}%</p></div>
+                <div><p class="text-sm text-gray-500">最大回撤</p><p class="text-lg font-bold change-up">${result.max_drawdown.toFixed(2)}%</p></div>
+                <div><p class="text-sm text-gray-500">夏普比率</p><p class="text-lg font-bold">${result.sharpe_ratio.toFixed(2)}</p></div>
+                <div><p class="text-sm text-gray-500">勝率</p><p class="text-lg font-bold">${(result.win_rate * 100).toFixed(1)}%</p></div>
+            `;
+
+            if (backtestChartInstance) {
+                backtestChartInstance.destroy();
+            }
+            backtestChartInstance = new Chart(backtestChartCtx, {
+                type: 'line',
+                data: {
+                    labels: result.equity_curve.map((_, i) => i + 1),
+                    datasets: [{
+                        label: '權益曲線',
+                        data: result.equity_curve,
+                        borderColor: '#1A73E8',
+                        backgroundColor: 'rgba(26, 115, 232, 0.1)',
+                        fill: true,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { ticks: { callback: value => `$${value.toLocaleString()}` } } }
+                }
+            });
+        }
+
+        runBacktestButton.addEventListener('click', async () => {
+            runBacktestButton.disabled = true;
+
+            const payload = {
+                strategy_code: strategyCodeEl.value,
+                strategy_name: "用戶自訂策略" // 可從 UI 獲取
+            };
+
+            try {
+                const task = await api.post('/api/v1/backtest/run', payload);
+
+                pollForResult(task.task_id,
+                    () => {
+                        runBacktestButton.textContent = '回測執行中...';
+                        backtestKpisEl.innerHTML = `<p class="col-span-full text-center">正在執行回測，請稍候...</p>`;
+                        if (backtestChartInstance) backtestChartInstance.destroy();
+                    },
+                    (result) => {
+                        renderBacktestReport(result);
+                        runBacktestButton.disabled = false;
+                        runBacktestButton.textContent = '執行策略回測';
+                    },
+                    (error) => {
+                        backtestKpisEl.innerHTML = `<p class="col-span-full text-center text-red-500">回測失敗: ${error.error}</p>`;
+                        runBacktestButton.disabled = false;
+                        runBacktestButton.textContent = '執行策略回測';
+                    }
+                );
+            } catch (error) {
+                backtestKpisEl.innerHTML = `<p class="col-span-full text-center text-red-500">提交任務失敗: ${error.message}</p>`;
+                runBacktestButton.disabled = false;
+                runBacktestButton.textContent = '執行策略回測';
+            }
+        });
+
+        // --- 初始化 ---
+        const initialTheme = localStorage.getItem('theme') === 'dark';
+        applyTheme(initialTheme);
+        initMarketSnapshot();
+        initShanJiaLang();
+    });
     </script>
 </body>
 </html>
