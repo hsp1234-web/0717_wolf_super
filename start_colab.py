@@ -1,106 +1,178 @@
-# -*- coding: utf-8 -*-
-import subprocess
-import atexit
+import os
+import sys
 import time
-from typing import List
-from pathlib import Path
+import subprocess
+import logging
+from datetime import datetime
 
-# ==============================================================================
-# 抽象層：服務管理器 (Abstraction Layer: Service Manager) - v2 (哨兵版)
-# ==============================================================================
+# --- 在設定日誌之前，立即確保 logs 目錄存在 ---
+if not os.path.exists("logs"):
+    os.makedirs("logs")
+
+# --- 日誌地基工程 ---
+log_filename = f"logs/colab_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - [%(name)s] - %(message)s',
+    handlers=[
+        logging.FileHandler(log_filename),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger("Prometheus")
+
 class ServiceManager:
+    """「普羅米修斯」服務管理器。"""
     def __init__(self):
-        self._processes: List[subprocess.Popen] = []
-        self._log_dir = Path("logs")
-        self._log_dir.mkdir(exist_ok=True)
-        atexit.register(self.shutdown_all)
-        print("✅ 服務管理器 (v2) 已初始化，日誌目錄已準備。")
+        self.processes = []
+        self.log_files = {}
 
-    def launch(self, command: List[str], name: str, health_check_func=None):
-        log_path = self._log_dir / f"{name}_startup.log"
-        with open(log_path, 'w') as log_file:
-            process = subprocess.Popen(command, stdout=log_file, stderr=subprocess.STDOUT)
+    def launch(self, command, service_name, health_check_func=None):
+        """啟動一個服務，並像鷹一樣盯著它。"""
+        try:
+            service_log_path = f"logs/{service_name.lower().replace(' ', '_')}.log"
+            log_file = open(service_log_path, 'w')
+            self.log_files[service_name] = log_file
 
-        self._processes.append(process)
-        print(f"🚀 正在發射【{name}】服務 (PID: {process.pid})...")
+            logger.info(f"🚀 發射 '{service_name}'...")
+            logger.info(f"   - 指令: {' '.join(command)}")
+            logger.info(f"   - 日誌: {service_log_path}")
 
-        # 給予服務啟動時間
-        time.sleep(3)
+            process = subprocess.Popen(
+                command,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding='utf-8',
+                # 確保子進程可以看到 src
+                env={**os.environ, "PYTHONPATH": f".{os.pathsep}{os.environ.get('PYTHONPATH', '')}"}
+            )
+            self.processes.append((process, service_name))
+            logger.info(f"   ✅ '{service_name}' 進程已啟動 (PID: {process.pid}).")
 
-        # 檢查進程是否在啟動時就已崩潰
-        if process.poll() is not None:
-            print(f"❌ 嚴重錯誤：【{name}】服務在啟動時立即失敗！")
-            self._print_log_on_failure(log_path)
-            raise RuntimeError(f"{name} service failed to start.")
+            if health_check_func:
+                logger.info(f"   🩺 正在對 '{service_name}' 進行健康檢查...")
+                if not health_check_func():
+                    raise RuntimeError(f"'{service_name}' 健康檢查失敗。請檢查日誌: {service_log_path}")
+                logger.info(f"   ❤️ '{service_name}' 健康檢查通過。")
 
-        # 如果提供了健康檢查函式，則執行它
-        if health_check_func:
-            print(f"🔬 正在對【{name}】執行健康檢查...")
-            if not health_check_func():
-                print(f"❌ 嚴重錯誤：【{name}】未能通過健康檢查！")
-                self._print_log_on_failure(log_path)
-                raise RuntimeError(f"{name} service failed health check.")
-            print(f"✅ 【{name}】已通過健康檢查。")
+        except Exception as e:
+            logger.error(f"💥 啟動 '{service_name}' 時發生致命錯誤: {e}")
+            raise RuntimeError(f"無法啟動 {service_name}")
 
-    def _print_log_on_failure(self, log_path: Path):
-        print(f"--- 捕獲到的【黑盒子】啟動日誌 ({log_path.name}) ---")
-        if log_path.exists():
-            with open(log_path, 'r') as f:
-                print(f.read())
-        print("--- 日誌結束 ---")
+    def terminate_all(self):
+        """執行「焦土協議」：乾淨利落地終止所有子進程。"""
+        logger.info("--- 執行焦土協議：正在終止所有服務 ---")
+        for process, name in reversed(self.processes):
+            try:
+                if process.poll() is None:
+                    logger.warning(f"   - 正在發送終止信號給 '{name}' (PID: {process.pid})...")
+                    process.terminate()
+                    process.wait(timeout=10)
+                    logger.info(f"   - '{name}' 已成功終止。")
+                else:
+                    logger.info(f"   - '{name}' 已經自行終止。")
+            except subprocess.TimeoutExpired:
+                logger.error(f"   - 警告: '{name}' 在 10 秒內未響應終止信號。強制擊殺！")
+                process.kill()
+                logger.info(f"   - '{name}' 已被強制擊殺。")
+            except Exception as e:
+                logger.error(f"   - 終止 '{name}' 時發生錯誤: {e}")
 
-    def shutdown_all(self):
-        # ... (此函式邏輯與之前版本相同) ...
-        for p in self._processes:
-            if p.poll() is None:
-                print(f"Terminating process {p.pid}...")
-                p.terminate()
-        for p in self._processes:
-            p.wait()
+        for log_file in self.log_files.values():
+            log_file.close()
+        logger.info("--- 所有服務均已關閉。焦土協議執行完畢。 ---")
 
-# ==============================================================================
-# 探針：健康檢查器 (Probe: Health Checker)
-# ==============================================================================
-def check_api_server_health() -> bool:
-    """使用獨立的 check_health.py 腳本來探測 API 伺服器。"""
+def check_api_server_health(retries=5, delay=3):
+    """一個固執的健康檢查員。"""
+    import requests
+    url = "http://127.0.0.1:8000/health"
+    for i in range(retries):
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                logger.info(f"      -> 第 {i+1} 次嘗試: 成功！伺服器回應: {response.json()}")
+                return True
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"      -> 第 {i+1} 次嘗試: API 伺服器尚未就緒... ({e})")
+            time.sleep(delay)
+    logger.error("API 伺服器在多次嘗試後仍未通過健康檢查。")
+    return False
+
+def run_db_init():
+    """執行資料庫初始化。"""
+    logger.info("--- 第一階段：奠定數據基石 ---")
+    logger.info("   - 正在執行資料庫初始化腳本...")
     try:
-        # 設置超時以防止無限等待
+        # 使用 sys.executable 來確保我們用的是同一個 Python
+        python_executable = sys.executable
+        command = [python_executable, "-m", "src.prometheus.entrypoints.db_init"]
         result = subprocess.run(
-            ["poetry", "run", "python", "check_health.py"],
-            capture_output=True, text=True, timeout=15
+            command,
+            capture_output=True,
+            text=True,
+            check=True,
+            encoding='utf-8',
+            env={**os.environ, "PYTHONPATH": f".{os.pathsep}{os.environ.get('PYTHONPATH', '')}"}
         )
-        print(result.stdout) # 打印健康檢查腳本的輸出
-        return result.returncode == 0
-    except subprocess.TimeoutExpired:
-        print("❌ 健康檢查超時！API 伺服器可能未在監聽端口。")
-        return False
-    except Exception as e:
-        print(f"❌ 執行健康檢查時發生未知錯誤: {e}")
-        return False
+        logger.info("   - 資料庫初始化腳本輸出:")
+        for line in result.stdout.strip().split('\n'):
+            logger.info(f"     {line}")
+        logger.info("   ✅ 資料庫基石已成功奠定。")
+    except subprocess.CalledProcessError as e:
+        logger.error("   💥 資料庫初始化失敗！")
+        logger.error(f"   - 返回碼: {e.returncode}")
+        output = e.stdout + (e.stderr or "")
+        logger.error(f"   - 輸出:\n{output}")
+        raise RuntimeError("資料庫初始化失敗")
 
-# ==============================================================================
-# 主執行區：作戰啟動序列 (Main Execution: Launch Sequence)
-# ==============================================================================
 def main():
-    # ... (main 函式與之前版本類似，但 launch 方法現在包含健康檢查) ...
+    """「普羅米修斯計畫」- 環境校準版啟動程序。"""
+    logger.info("======================================================")
+    logger.info("===       「普羅米修斯計畫」後端啟動序列       ===")
+    logger.info("======================================================")
+
+    manager = ServiceManager()
+
     try:
-        manager = ServiceManager()
-        # 步驟 1: 啟動 API 伺服器，並附加健康檢查
+        run_db_init()
+
+        logger.info("\n--- 第二階段：並行啟動所有服務 ---")
+
+        # 回歸作戰計畫最初的方案：使用 sys.executable
+        python_executable = sys.executable
         api_server_cmd = [
-            "poetry", "run", "gunicorn", "-k", "uvicorn.workers.UvicornWorker",
-            "--bind", "0.0.0.0:8000", "src.prometheus.entrypoints.query_gateway:app"
+            python_executable, "-m", "gunicorn",
+            "-w", "1",
+            "-k", "uvicorn.workers.UvicornWorker",
+            "src.prometheus.entrypoints.query_gateway:app",
+            "--bind", "0.0.0.0:8000"
         ]
-        manager.launch(api_server_cmd, "API 伺服器", health_check_func=check_api_server_health)
-        # 步驟 2: 啟動工人蜂群 (無需健康檢查，因為它們依賴於 API)
-        worker_cmd = ["poetry", "run", "python", "real_worker.py"]
-        manager.launch(worker_cmd, "作戰工人")
-        print("\n🎉 所有服務已成功發射。系統進入穩定運行狀態。")
-        # 保持主腳本運行，直到被手動中斷
+        manager.launch(api_server_cmd, "API_伺服器", health_check_func=check_api_server_health)
+
+        worker_count = max(1, (os.cpu_count() or 2) - 1)
+        logger.info(f"ℹ️  將並行部署 {worker_count} 個作戰工人。")
+        for i in range(worker_count):
+            worker_cmd = [python_executable, "real_worker.py"]
+            manager.launch(worker_cmd, f"工人蜂-{i+1}")
+
+        logger.info("\n======================================================")
+        logger.info("🎉 所有服務已成功發射。系統進入穩定運行狀態。")
+        logger.info("======================================================")
+
         while True:
-            time.sleep(60)
+            time.sleep(300)
+
     except (RuntimeError, KeyboardInterrupt) as e:
-        print(f"\n捕獲到錯誤或中斷信號: {e}")
-        # atexit 會自動處理關閉
+        if isinstance(e, RuntimeError):
+            logger.error(f"\n💥 啟動序列失敗: {e}")
+        else:
+            logger.info("\n⌨️ 接收到使用者中斷指令。")
+
+        logger.info("🔴 系統正在關閉...")
+
+    finally:
+        manager.terminate_all()
 
 if __name__ == "__main__":
     main()
