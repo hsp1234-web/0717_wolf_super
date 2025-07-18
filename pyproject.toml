@@ -34,6 +34,7 @@ playwright = "^1.53.0"
 gunicorn = "^23.0.0"
 matplotlib = "^3.10.3"
 pandas-datareader = "^0.10.0"
+backtrader = "^1.9.78.123"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"

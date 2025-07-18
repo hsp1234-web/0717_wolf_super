@@ -26,7 +26,7 @@ try:
             # 嘗試連接，設置較短的連接超時
             response = requests.get(SERVICE_URL, timeout=REQUEST_TIMEOUT)
             if response.status_code == 404:
-                print(f"戰報：伺服器在第 {i+1} 秒響應！連接成功。")
+                print(f"戰報：伺服器在第 {i + 1} 秒響應！連接成功。")
                 is_server_ready = True
                 break
         except requests.ConnectionError:

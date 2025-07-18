@@ -13,14 +13,14 @@ for i in range(ATTEMPTS):
     try:
         response = requests.get(URL, timeout=3)
         if response.status_code == 200 and response.json().get("status") == "ok":
-            print(f"✅ 探測成功！伺服器在第 {i+1} 次嘗試後回報狀態正常。")
+            print(f"✅ 探測成功！伺服器在第 {i + 1} 次嘗試後回報狀態正常。")
             sys.exit(0)
         else:
-            print(f"🟡 第 {i+1} 次嘗試：伺服器回應異常，狀態碼 {response.status_code}。")
+            print(f"🟡 第 {i + 1} 次嘗試：伺服器回應異常，狀態碼 {response.status_code}。")
     except requests.ConnectionError:
-        print(f"🟡 第 {i+1} 次嘗試：無法連接到伺服器，等待 {DELAY} 秒後重試...")
+        print(f"🟡 第 {i + 1} 次嘗試：無法連接到伺服器，等待 {DELAY} 秒後重試...")
     except Exception as e:
-        print(f"🟡 第 {i+1} 次嘗試：發生未知錯誤 {e}。")
+        print(f"🟡 第 {i + 1} 次嘗試：發生未知錯誤 {e}。")
 
     time.sleep(DELAY)
 

@@ -6,6 +6,7 @@
 API 入口和異步工人 (Worker) 都應通過這個服務層來執行其操作，
 從而實現一個乾淨、內聚且易於測試的架構。
 """
+
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple
@@ -134,7 +135,7 @@ class PrometheusService:
                 data.rename(columns={"Close": value_col_name}, inplace=True)
             else:
                 # 作為備用，使用第一個非索引列
-                value_col = next((col for col in data.columns if col.lower() != 'date'), None)
+                value_col = next((col for col in data.columns if col.lower() != "date"), None)
                 if value_col:
                     data.rename(columns={value_col: value_col_name}, inplace=True)
         return data
@@ -152,10 +153,10 @@ class PrometheusService:
             一個元組，包含一個處理過的數據字典和一個布爾值，指示數據是否陳舊。
         """
         # 為了與 _fetch_live_data 中的重命名保持一致，我們主要尋找 'data_value'
-        if 'data_value' in df.columns:
-            value_col = 'data_value'
+        if "data_value" in df.columns:
+            value_col = "data_value"
         elif value_col not in df.columns and "Close" in df.columns:
-            value_col = "Close" # 向後兼容
+            value_col = "Close"  # 向後兼容
 
         if value_col not in df.columns:
             return ({"value": "N/A", "change": 0.0, "trend": []}, True)
@@ -200,9 +201,11 @@ class PrometheusService:
             # 根據環境動態導入分析器
             if env == "test":
                 from .analysis.stress_index import MockFredClient, MockNYFedClient, StressIndexCalculator
+
                 analyzer = StressIndexCalculator(fred_client=MockFredClient(), nyfed_client=MockNYFedClient())
             else:
                 from .analysis.stress_index import StressIndexCalculator
+
                 analyzer = StressIndexCalculator()
 
             stress_index_series = analyzer.calculate_stress_index(force_refresh=True)
@@ -233,6 +236,7 @@ class PrometheusService:
             一個元組，包含任務的最終狀態 ("completed") 和結果消息。
         """
         import random
+
         print(f"任務 {task_id}: 開始執行因子相關性分析...")
         time.sleep(random.uniform(0.1, 0.3))  # 模擬計算耗時
         correlation = random.uniform(-0.9, 0.9)

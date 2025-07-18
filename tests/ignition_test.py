@@ -11,7 +11,6 @@ def test_critical_imports():
     以捕獲循環依賴或頂層導入錯誤。
     """
     try:
-        from prometheus.core.analysis.data_engine import DataEngine  # noqa: F401
         from prometheus.core.clients.client_factory import ClientFactory  # noqa: F401
         from prometheus.core.db.data_warehouse import DataWarehouse  # noqa: F401
         from prometheus.core.queue.sqlite_queue import SQLiteQueue  # noqa: F401

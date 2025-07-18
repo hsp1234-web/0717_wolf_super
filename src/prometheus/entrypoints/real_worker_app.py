@@ -72,9 +72,9 @@ class RealWorkerApp:
         if handler:
             # 傳遞 task_id，如果處理程序需要它
             if task_type == "stress_index_analysis":
-                 return handler(task_id=task_id, env=self.env)
+                return handler(task_id=task_id, env=self.env)
             else:
-                 return handler(task_id=task_id)
+                return handler(task_id=task_id)
         else:
             logging.warning(f"任務 {task_id}: 找不到類型為 '{task_type}' 的處理程序。")
             return "failed", f"未知的任務類型: {task_type}"

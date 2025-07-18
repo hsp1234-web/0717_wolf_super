@@ -56,7 +56,7 @@ class StrategyReporter:
 此策略由以下 **{len(best_strategy_factors)}** 個因子等權重構成：
 
 ```
-{', '.join(best_strategy_factors)}
+{", ".join(best_strategy_factors)}
 ```
 """
         report_path = os.path.join(self.report_dir, "best_strategy_report.md")

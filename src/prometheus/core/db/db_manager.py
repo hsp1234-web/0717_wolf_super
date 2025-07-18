@@ -87,15 +87,15 @@ class DBManager:
                         self.logger.warning("沒有需要更新的欄位（除了主鍵），將只執行插入操作。")
                         # 如果只有主鍵，那麼 ON CONFLICT 就不需要 DO UPDATE
                         upsert_sql = f"""
-                        INSERT INTO {table_name} ({', '.join(all_columns)})
-                        SELECT {', '.join(all_columns)} FROM df_to_upsert
+                        INSERT INTO {table_name} ({", ".join(all_columns)})
+                        SELECT {", ".join(all_columns)} FROM df_to_upsert
                         ON CONFLICT (date, symbol) DO NOTHING;
                         """
                     else:
                         set_clause = ", ".join([f"{col} = excluded.{col}" for col in update_columns])
                         upsert_sql = f"""
-                        INSERT INTO {table_name} ({', '.join(all_columns)})
-                        SELECT {', '.join(all_columns)} FROM df_to_upsert
+                        INSERT INTO {table_name} ({", ".join(all_columns)})
+                        SELECT {", ".join(all_columns)} FROM df_to_upsert
                         ON CONFLICT (date, symbol) DO UPDATE SET
                             {set_clause};
                         """

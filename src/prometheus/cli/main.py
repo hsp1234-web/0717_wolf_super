@@ -249,7 +249,7 @@ def add_tasks(
                 "batch_id": batch_id,
             }
             ctx.queue.put(task)
-            logger.debug(f"已將任務 {i+1}/{num_tasks} ({task['strategy']}) 添加到佇列。")
+            logger.debug(f"已將任務 {i + 1}/{num_tasks} ({task['strategy']}) 添加到佇列。")
         logger.info(f"成功將 {num_tasks} 個任務添加到佇列。")
 
 

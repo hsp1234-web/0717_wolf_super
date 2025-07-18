@@ -11,6 +11,7 @@ from src.prometheus.core.config import config
 from src.prometheus.core.db.data_warehouse import DataWarehouse
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
 from src.prometheus.core.services import PrometheusService
+
 # 核心變更：從 query_gateway 導入新的依賴注入函數
 from src.prometheus.entrypoints.query_gateway import app, get_prometheus_service
 

@@ -5,19 +5,13 @@ from typing import Any, Dict, List, Optional
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
-import json
-import os
-from typing import Any, Dict, List, Optional
-
-from fastapi import Depends, FastAPI, HTTPException
-from pydantic import BaseModel
-
 from src.prometheus.core.clients.client_factory import ClientFactory
 from src.prometheus.core.db.data_warehouse import DataWarehouse
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
+
 # 導入新的核心服務
 from src.prometheus.core.services import PrometheusService
-from src.prometheus.models.snapshot_models import AIAnalysisRequest, BacktestRequest, Factor
+from src.prometheus.models.snapshot_models import Factor
 
 app = FastAPI(title="作戰司令部 API", version="2.0.0 (單一核心)")
 

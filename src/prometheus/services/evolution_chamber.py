@@ -150,7 +150,7 @@ class EvolutionChamber:
             hof.update(pop)
 
             record = stats.compile(pop)
-            print(f"> 第 {g+1} 代: 最優夏普 = {record['max']:.4f}, 平均夏普 = {record['avg']:.4f}")
+            print(f"> 第 {g + 1} 代: 最優夏普 = {record['max']:.4f}, 平均夏普 = {record['avg']:.4f}")
 
         print("--- 演化結束 ---")
         return hof

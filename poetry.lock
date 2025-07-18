@@ -90,6 +90,20 @@ tests = ["cloudpickle ; platform_python_implementation == \"CPython\"", "hypothe
 tests-mypy = ["mypy (>=1.11.1) ; platform_python_implementation == \"CPython\" and python_version >= \"3.10\"", "pytest-mypy-plugins ; platform_python_implementation == \"CPython\" and python_version >= \"3.10\""]
 
 [[package]]
+name = "backtrader"
+version = "1.9.78.123"
+description = "BackTesting Engine"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "backtrader-1.9.78.123-py2.py3-none-any.whl", hash = "sha256:9a07a516b0de9155539a35c56e9404d8711dd7020b3d37b30495e83e1b9d5dfd"},
+]
+
+[package.extras]
+plotting = ["matplotlib"]
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.13.4"
 description = "Screen-scraping library"
@@ -3879,4 +3893,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.14"
-content-hash = "ff223d8a2157bbd92a3e58280a978810482390bcd30563bdfd472599983fa7f2"
+content-hash = "a30891f30dea1edfe893a7bc29b1d1c9f3b0d5edd4b08c346ff4e5d2155b4fdb"
