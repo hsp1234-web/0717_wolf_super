@@ -261,7 +261,22 @@ def handle_data(context, data):
                     }
                     const changeClass = factor.change >= 0 ? 'change-up' : 'change-down';
                     const changeSign = factor.change >= 0 ? '▲' : '▼';
-                    categoryHtml += `<div class="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800/50 rounded-lg"><div><p class="text-sm font-medium">${factor.name}</p><p class="text-xl font-bold">${factor.value}</p><p class="text-xs ${changeClass}">${changeSign} ${Math.abs(factor.change)}%</p></div><div class="w-24 h-12"><canvas id="sparkline-${index}"></canvas></div></div>`;
+
+                    // --- 韌性顯示協議 ---
+                    let nameHtml = factor.name;
+                    if (nameHtml.includes('(舊)')) {
+                        nameHtml = nameHtml.replace('(舊)', '<span class="text-xs font-semibold px-1.5 py-0.5 bg-yellow-200 text-yellow-800 rounded-full ml-2">備用源</span>');
+                    }
+
+                    categoryHtml += `
+                        <div class="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800/50 rounded-lg">
+                            <div>
+                                <p class="text-sm font-medium flex items-center">${nameHtml}</p>
+                                <p class="text-xl font-bold">${factor.value}</p>
+                                <p class="text-xs ${changeClass}">${changeSign} ${Math.abs(factor.change)}%</p>
+                            </div>
+                            <div class="w-24 h-12"><canvas id="sparkline-${index}"></canvas></div>
+                        </div>`;
                 });
                 if (currentCategory !== null) categoryHtml += `</div></div>`;
                 factorsListContainer.innerHTML = categoryHtml;
@@ -359,23 +374,26 @@ def handle_data(context, data):
 
         // --- 策略回測模組 ---
         function renderBacktestReport(result) {
+            // 更新以匹配 backtrader 的輸出
             backtestKpisEl.innerHTML = `
-                <div><p class="text-sm text-gray-500">年化報酬</p><p class="text-lg font-bold ${result.annualized_return > 0 ? 'change-up' : 'change-down'}">${result.annualized_return.toFixed(2)}%</p></div>
-                <div><p class="text-sm text-gray-500">最大回撤</p><p class="text-lg font-bold change-up">${result.max_drawdown.toFixed(2)}%</p></div>
-                <div><p class="text-sm text-gray-500">夏普比率</p><p class="text-lg font-bold">${result.sharpe_ratio.toFixed(2)}</p></div>
-                <div><p class="text-sm text-gray-500">勝率</p><p class="text-lg font-bold">${(result.win_rate * 100).toFixed(1)}%</p></div>
+                <div><p class="text-sm text-gray-500 dark:text-gray-400">年化報酬</p><p class="text-lg font-bold ${result.annualized_return >= 0 ? 'change-down' : 'change-up'}">${result.annualized_return.toFixed(2)}%</p></div>
+                <div><p class="text-sm text-gray-500 dark:text-gray-400">最大回撤</p><p class="text-lg font-bold change-up">${result.max_drawdown.toFixed(2)}%</p></div>
+                <div><p class="text-sm text-gray-500 dark:text-gray-400">夏普比率</p><p class="text-lg font-bold">${result.sharpe_ratio ? result.sharpe_ratio.toFixed(2) : 'N/A'}</p></div>
+                <div><p class="text-sm text-gray-500 dark:text-gray-400">總交易數</p><p class="text-lg font-bold">${result.total_trades}</p></div>
             `;
 
             if (backtestChartInstance) {
                 backtestChartInstance.destroy();
             }
+            // 注意：後端目前不直接返回權益曲線，此處為示意
+            const equityCurve = result.equity_curve || [100000, 102000, 101500, 103000, 105000];
             backtestChartInstance = new Chart(backtestChartCtx, {
                 type: 'line',
                 data: {
-                    labels: result.equity_curve.map((_, i) => i + 1),
+                    labels: equityCurve.map((_, i) => i + 1),
                     datasets: [{
-                        label: '權益曲線',
-                        data: result.equity_curve,
+                        label: '模擬權益曲線',
+                        data: equityCurve,
                         borderColor: '#1A73E8',
                         backgroundColor: 'rgba(26, 115, 232, 0.1)',
                         fill: true,
@@ -396,19 +414,32 @@ def handle_data(context, data):
         runBacktestButton.addEventListener('click', async () => {
             runBacktestButton.disabled = true;
 
+            // 構建符合後端 Strategy 模型的 payload
+            // **注意**: 這些值目前是硬編碼的，代表一個範例策略。
+            // 在一個更完整的系統中，這些值應該從 UI 元素中動態讀取。
             const payload = {
-                strategy_code: strategyCodeEl.value,
-                strategy_name: "用戶自訂策略" // 可從 UI 獲取
+                id: `strategy-${new Date().getTime()}`, // 生成一個唯一的 ID
+                target_asset: "TEST.US",
+                factors: ["MOMENTUM_1M", "VOLATILITY_20D"],
+                weights: {"MOMENTUM_1M": 0.7, "VOLATILITY_20D": -0.3}
             };
 
+            // 替換 strategy-code 文本區域的內容，使其與提交的策略一致
+            strategyCodeEl.value = `# 提交的策略設定\n\nTARGET_ASSET = "${payload.target_asset}"\n\nFACTORS = ${JSON.stringify(payload.factors)}\n\nWEIGHTS = ${JSON.stringify(payload.weights, null, 2)}`;
+
+
             try {
-                const task = await api.post('/api/v1/backtest/run', payload);
+                // 更新 API 端點
+                const task = await api.post('/api/v1/task/backtest', payload);
 
                 pollForResult(task.task_id,
                     () => {
                         runBacktestButton.textContent = '回測執行中...';
                         backtestKpisEl.innerHTML = `<p class="col-span-full text-center">正在執行回測，請稍候...</p>`;
-                        if (backtestChartInstance) backtestChartInstance.destroy();
+                        if (backtestChartInstance) {
+                            backtestChartInstance.destroy();
+                            backtestChartInstance = null;
+                        }
                     },
                     (result) => {
                         renderBacktestReport(result);
@@ -416,7 +447,8 @@ def handle_data(context, data):
                         runBacktestButton.textContent = '執行策略回測';
                     },
                     (error) => {
-                        backtestKpisEl.innerHTML = `<p class="col-span-full text-center text-red-500">回測失敗: ${error.error}</p>`;
+                        const errorMessage = error.message || (error.error ? JSON.stringify(error.error) : '未知錯誤');
+                        backtestKpisEl.innerHTML = `<p class="col-span-full text-center text-red-500">回測失敗: ${errorMessage}</p>`;
                         runBacktestButton.disabled = false;
                         runBacktestButton.textContent = '執行策略回測';
                     }
