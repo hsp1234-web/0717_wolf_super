@@ -7,6 +7,7 @@ mock_worker.py
 """
 
 import logging
+import os
 import signal
 import time
 
@@ -24,35 +25,39 @@ def handle_signal(signum, frame):
     shutdown_signal = True
 
 
-class MockWorkerApp:
+class MockWorker:
     """
     模擬工人應用程式。
     """
 
-    def __init__(self):
+    def __init__(self, db_path="data/test_prometheus.db"):
         setup_logging(process_name="MOCK_WORKER")
-        db_path = "data/test_prometheus.db"
         self.queue = SQLiteQueue(db_path)
         logging.info(f"模擬工人已初始化，資料庫路徑: {db_path}")
+
+    def process_single_task(self):
+        """處理單一任務。"""
+        logging.info("Polling for a single task...")
+        task_info = self.queue.get()
+
+        if task_info:
+            task_id, task_type, payload = task_info
+            logging.info(f"任務 {task_id}: 已接收類型為 '{task_type}' 的任務。")
+            # 立即回報成功
+            result_payload = {
+                "message": f"模擬成功: 任務 {task_id} 已由模擬工人處理。",
+                "original_payload": payload,
+            }
+            self.queue.update_task(task_id, "completed", result_payload)
+            logging.info(f"任務 {task_id}: 已被標記為 'completed'。")
+            return True
+        return False
 
     def main_loop(self):
         """工人的主執行循環。"""
         logging.info("模擬工人主循環已啟動，等待任務...")
         while not shutdown_signal:
-            logging.info("Polling for tasks...")
-            task_info = self.queue.get()
-
-            if task_info:
-                task_id, task_type, payload = task_info
-                logging.info(f"任務 {task_id}: 已接收類型為 '{task_type}' 的任務。")
-                # 立即回報成功
-                result_payload = {
-                    "message": f"模擬成功: 任務 {task_id} 已由模擬工人處理。",
-                    "original_payload": payload,
-                }
-                self.queue.update_task(task_id, "completed", result_payload)
-                logging.info(f"任務 {task_id}: 已被標記為 'completed'。")
-
+            self.process_single_task()
             time.sleep(0.1)
         logging.info("模擬工人主循環已結束。")
 
@@ -65,5 +70,9 @@ class MockWorkerApp:
 
 
 if __name__ == "__main__":
-    app = MockWorkerApp()
+    # 確保在多進程環境下能找到 src 模組
+    # 這在從根目錄執行 `python mock_worker.py` 時是必需的
+    import sys
+    sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+    app = MockWorker()
     app.run()

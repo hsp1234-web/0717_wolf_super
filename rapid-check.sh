@@ -34,13 +34,13 @@ if ! poetry run pytest tests/ignition_test.py; then
 fi
 echo -e "${GREEN}✅ 架構點火測試通過。${NC}"
 
-# --- ⚡ 第四道防線：快速整合測試 (API-to-Worker Flow) ---
-echo -e "\n${GREEN}--- ⚡ 第四道防線：快速整合測試 ---${NC}"
-if ! poetry run pytest tests/integration/test_api_to_worker_flow.py; then
-    echo -e "${RED}❌ 快速檢查失敗：API 到工人的核心通訊鏈路測試失敗。${NC}"
+# --- ⚡ 第四道防線：單體迴路整合測試 ---
+echo -e "\n${GREEN}--- ⚡ 第四道防線：單體迴路整合測試 ---${NC}"
+if ! poetry run pytest tests/integration/test_in_process_flow.py; then
+    echo -e "${RED}❌ 快速檢查失敗：單體迴路整合測試失敗。${NC}"
     exit 1
 fi
-echo -e "${GREEN}✅ 快速整合測試通過。${NC}"
+echo -e "${GREEN}✅ 單體迴路整合測試通過。${NC}"
 
 end_time=$SECONDS
 duration=$((end_time - start_time))

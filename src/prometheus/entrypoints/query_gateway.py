@@ -1,8 +1,10 @@
 import json
 import os
+import traceback
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.prometheus.core.clients.client_factory import ClientFactory
@@ -22,6 +24,32 @@ web_dir = os.path.join(os.path.dirname(__file__), '..', 'web')
 
 # 掛載靜態文件目錄
 app.mount("/static", StaticFiles(directory=web_dir), name="static")
+
+
+# --- 作戰情報中心：全域錯誤攔截中介軟體 ---
+@app.middleware("http")
+async def error_trapping_middleware(request: Request, call_next):
+    """
+    這個中介軟體會攔截所有 HTTP 請求，並在發生未處理的伺服器錯誤時，
+    以結構化的 JSON 格式回傳詳細的錯誤情報，而不是 HTML 錯誤頁面。
+    """
+    try:
+        return await call_next(request)
+    except Exception as e:
+        # 獲取詳細的堆疊追蹤資訊
+        tb_str = traceback.format_exc()
+        # 在伺服器日誌中記錄完整的錯誤
+        # logger.error("Unhandled exception: %s", tb_str)
+        # 回傳一個標準化的 JSON 錯誤回應
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "一個無法預期的內部錯誤發生了。",
+                "exception_type": type(e).__name__,
+                "exception_message": str(e),
+                "traceback": tb_str.splitlines(),
+            },
+        )
 
 
 # --- 模型定義 ---
@@ -106,6 +134,8 @@ def get_market_snapshot(cache_only: bool = False, service: PrometheusService = D
 def post_backtest(strategy: Strategy, cache_only: bool = False, tq: SQLiteQueue = Depends(get_task_queue)):
     """提交一個回測任務。"""
     print(f"Received backtest request with cache_only={cache_only}")
+    if strategy.id == "trigger_error":
+        raise ValueError("這是一個用於測試的故意引發的錯誤。")
     try:
         payload = {
             "strategy": strategy.dict(),

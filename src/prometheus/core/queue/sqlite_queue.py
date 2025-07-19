@@ -1,4 +1,5 @@
 import json
+import logging
 import sqlite3
 import time
 import uuid
@@ -68,6 +69,8 @@ class SQLiteQueue:
             )
             conn.commit()
             print(f"Task {task_id} inserted into database.")
+        # Log the put operation
+        logging.info(f"Task {task_id} put into queue.")
         return task_id
 
     def get(self) -> Optional[Tuple[str, str, Dict[str, Any]]]:
