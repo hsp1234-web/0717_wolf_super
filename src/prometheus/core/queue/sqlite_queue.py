@@ -58,11 +58,16 @@ class SQLiteQueue:
     def put(self, task_type: str, payload: Optional[Dict[str, Any]] = None) -> str:
         task_id = str(uuid.uuid4())
         current_time = time.time()
+        payload_str = json.dumps(payload) if payload else "{}"
+        print(f"Putting task {task_id} with payload {payload_str}")
         with self._get_connection() as conn:
-            conn.execute(
+            cursor = conn.cursor()
+            cursor.execute(
                 "INSERT INTO tasks (task_id, task_type, payload, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (task_id, task_type, json.dumps(payload) if payload else "{}", "pending", current_time, current_time),
+                (task_id, task_type, payload_str, "pending", current_time, current_time),
             )
+            conn.commit()
+            print(f"Task {task_id} inserted into database.")
         return task_id
 
     def get(self) -> Optional[Tuple[str, str, Dict[str, Any]]]:
@@ -73,6 +78,7 @@ class SQLiteQueue:
                 "SELECT id, task_id, task_type, payload FROM tasks WHERE status = 'pending' ORDER BY created_at ASC LIMIT 1"
             )
             row = cursor.fetchone()
+            print(f"Got task: {row}")
             if row:
                 record_id, task_id, task_type, payload_str = row
                 cursor.execute(

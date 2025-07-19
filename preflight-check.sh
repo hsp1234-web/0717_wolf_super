@@ -35,8 +35,16 @@ if ! poetry run pytest --ignore=tests/e2e tests/ignition_test.py; then
 fi
 echo -e "${GREEN}✅ 架構點火測試通過。${NC}"
 
-# --- 👁️ 第四道防線：奧丁之眼全鏈路驗證 (E2E Test) ---
-echo -e "\n${GREEN}--- 👁️ 第四道防線：奧丁之眼全鏈路驗證 (E2E Test) ---${NC}"
+# --- ⚡ 第四道防線：快速整合測試 (API-to-Worker Flow) ---
+echo -e "\n${GREEN}--- ⚡ 第四道防線：快速整合測試 ---${NC}"
+if ! poetry run pytest tests/integration/test_api_to_worker_flow.py; then
+    echo -e "${RED}❌ 預檢驗失敗：API 到工人的核心通訊鏈路測試失敗。${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ 快速整合測試通過。${NC}"
+
+# --- 👁️ 第五道防線：奧丁之眼全鏈路驗證 (E2E Test) ---
+echo -e "\n${GREEN}--- 👁️ 第五道防線：奧丁之眼全鏈路驗證 (E2E Test) ---${NC}"
 # 安裝 Playwright 所需的瀏覽器
 poetry run playwright install --with-deps
 if ! poetry run pytest tests/e2e/test_eye_of_odin.py; then

@@ -12,8 +12,8 @@ from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
 # 導入新的核心服務
 from src.prometheus.core.services import PrometheusService
 from src.prometheus.models.snapshot_models import Factor
+from src.prometheus.models.strategy_models import Strategy
 from fastapi.staticfiles import StaticFiles
-import os
 
 app = FastAPI(title="作戰司令部 API", version="2.0.0 (單一核心)")
 
@@ -40,7 +40,7 @@ class TaskResultResponse(BaseModel):
 
 # --- 核心服務與依賴注入 ---
 def get_db_path():
-    return os.getenv("DB_PATH", "data/prometheus.db")
+    return "data/prometheus.db"
 
 
 def get_warehouse_path():
@@ -65,9 +65,15 @@ def get_prometheus_service(
     queue: SQLiteQueue = Depends(get_task_queue),
     warehouse: DataWarehouse = Depends(get_data_warehouse),
     client_factory: ClientFactory = Depends(get_client_factory),
+    cache_only: bool = False,
 ) -> PrometheusService:
     """提供一個 PrometheusService 實例。"""
-    return PrometheusService(queue=queue, warehouse=warehouse, client_factory=client_factory)
+    return PrometheusService(
+        queue=queue,
+        warehouse=warehouse,
+        client_factory=client_factory,
+        cache_only=cache_only,
+    )
 
 
 # --- API 端點定義 ---
@@ -77,13 +83,16 @@ def health_check():
 
 
 @app.get("/api/v1/market_snapshot", response_model=List[Factor], tags=["市場數據"])
-def get_market_snapshot(service: PrometheusService = Depends(get_prometheus_service)):
+def get_market_snapshot(cache_only: bool = False, service: PrometheusService = Depends(get_prometheus_service)):
     """
     獲取市場快照。
 
     此端點現在是 PrometheusService.get_market_snapshot() 的一個簡單代理。
     """
+    print(f"Received cache_only parameter: {cache_only}")  # 添加日誌
     try:
+        # 這裡我們需要重新獲取一個 service，並傳入 cache_only 參數
+        service.cache_only = cache_only
         factors = service.get_market_snapshot()
         if not factors:
             raise HTTPException(status_code=503, detail="數據源暫時無法訪問或未返回任何數據。")
@@ -93,15 +102,22 @@ def get_market_snapshot(service: PrometheusService = Depends(get_prometheus_serv
         raise HTTPException(status_code=500, detail=f"獲取市場數據時發生嚴重錯誤: {str(e)}")
 
 
-@app.post("/api/v1/task/stress_index_analysis", response_model=TaskResponse, tags=["情報融合"])
-def post_stress_index_analysis(tq: SQLiteQueue = Depends(get_task_queue)):
-    """提交一個壓力指數分析任務。"""
+@app.post("/api/v1/task/backtest", response_model=TaskResponse, tags=["策略回測"])
+def post_backtest(strategy: Strategy, cache_only: bool = False, tq: SQLiteQueue = Depends(get_task_queue)):
+    """提交一個回測任務。"""
+    print(f"Received backtest request with cache_only={cache_only}")
     try:
-        # 這裡的 payload 可以是空的，因為任務類型本身就定義了操作
-        task_id = tq.put(task_type="stress_index_analysis", payload={})
-        return {"message": "壓力指數分析任務已成功提交", "task_id": task_id}
+        payload = {
+            "strategy": strategy.dict(),
+            "cache_only": cache_only,
+        }
+        task_id = tq.put(task_type="backtest", payload=payload)
+        return {"message": "回測任務已成功提交", "task_id": task_id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"提交任務時發生錯誤: {str(e)}")
+        import traceback
+        tb_str = traceback.format_exc()
+        print(f"Error in post_backtest: {e}\n{tb_str}")
+        raise HTTPException(status_code=500, detail={"error": str(e), "traceback": tb_str})
 
 
 @app.post("/api/v1/task/factor_correlation_analysis", response_model=TaskResponse, tags=["情報融合"])

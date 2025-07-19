@@ -1,6 +1,7 @@
 from typing import Dict, Type
 
 from .base import BaseClient
+from .finmind import FinMindClient
 from .fred import FredClient
 from .yfinance import YFinanceClient
 
@@ -13,6 +14,7 @@ class ClientFactory:
     _clients: Dict[str, Type[BaseClient]] = {
         "yfinance": YFinanceClient,
         "fred": FredClient,
+        "finmind": FinMindClient,
     }
 
     @staticmethod

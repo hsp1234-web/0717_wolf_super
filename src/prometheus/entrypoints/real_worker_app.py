@@ -16,6 +16,8 @@ from src.prometheus.core.db.data_warehouse import DataWarehouse
 from src.prometheus.core.logging_config import setup_logging
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
 from src.prometheus.core.services import PrometheusService
+from src.prometheus.models.strategy_models import Strategy
+from src.prometheus.services.backtesting_service import BacktestingService
 
 # --- 全局變數和信號處理 ---
 shutdown_signal = False
@@ -65,19 +67,42 @@ class RealWorkerApp:
         handler_map = {
             "stress_index_analysis": self.service.run_stress_index_analysis,
             "factor_correlation_analysis": self.service.run_factor_correlation_analysis,
+            "backtest": self.run_backtest,
         }
 
         handler = handler_map.get(task_type)
 
         if handler:
-            # 傳遞 task_id，如果處理程序需要它
-            if task_type == "stress_index_analysis":
+            # 傳遞 task_id 和 payload
+            if task_type == "backtest":
+                return handler(task_id=task_id, payload=self.queue.get_task(task_id)["payload"])
+            elif task_type == "stress_index_analysis":
                 return handler(task_id=task_id, env=self.env)
             else:
                 return handler(task_id=task_id)
         else:
             logging.warning(f"任務 {task_id}: 找不到類型為 '{task_type}' 的處理程序。")
             return "failed", f"未知的任務類型: {task_type}"
+
+    def run_backtest(self, task_id: str, payload: dict):
+        """執行回測任務。"""
+        try:
+            strategy_data = payload["strategy"]
+            strategy = Strategy(**strategy_data)
+
+            # 根據 cache_only 標誌，我們可以選擇性地重新配置服務或其客戶端
+            # 為了簡單起見，我們假設 BacktestingService 總是從資料庫讀取，
+            # 這符合「唯快取」模式。
+            from src.prometheus.core.db.db_manager import DBManager
+            db_manager = DBManager(db_path=self.warehouse.db_path)
+            backtesting_service = BacktestingService(db_manager=db_manager)
+
+            report = backtesting_service.run(strategy)
+
+            return "completed", report.dict()
+        except Exception as e:
+            logging.error(f"任務 {task_id}: 回測失敗: {e}", exc_info=True)
+            return "failed", {"error": str(e)}
 
     def main_loop(self):
         """工人的主執行循環。"""

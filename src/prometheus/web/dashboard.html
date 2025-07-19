@@ -430,7 +430,7 @@ def handle_data(context, data):
 
             try {
                 // 更新 API 端點
-                const task = await api.post('/api/v1/task/backtest', payload);
+                const task = await api.post('/api/v1/task/backtest?cache_only=true', payload);
 
                 pollForResult(task.task_id,
                     () => {

@@ -89,11 +89,14 @@ class Pipeline:
                     result = step.run(data, self.context)
                     if hasattr(result, "__aiter__"):
                         processed_list = [item async for item in result]
-                        data = (
-                            pd.concat(processed_list)
-                            if all(isinstance(i, pd.DataFrame) for i in processed_list)
-                            else processed_list
-                        )
+                        if not processed_list:
+                            data = pd.DataFrame()
+                        else:
+                            data = (
+                                pd.concat(processed_list)
+                                if all(isinstance(i, pd.DataFrame) for i in processed_list)
+                                else processed_list
+                            )
                     else:
                         data = await result
                 elif isinstance(data, list):

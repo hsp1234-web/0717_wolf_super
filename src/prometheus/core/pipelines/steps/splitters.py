@@ -26,7 +26,12 @@ class GroupBySymbolStep(BaseStep):
         logger.info("正在執行 GroupBySymbolStep...")
 
         if "symbol" not in data.columns:
-            raise ValueError("輸入的 DataFrame 必須包含 'symbol' 欄位。")
+            logger.warning("輸入的 DataFrame 缺少 'symbol' 欄位，跳過分組步驟。")
+            return
+
+        if data.empty:
+            logger.info("輸入的 DataFrame 為空，無需分組。")
+            return
 
         grouped = data.groupby("symbol")
 

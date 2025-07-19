@@ -28,7 +28,13 @@ class PrometheusService:
     - 異步任務的執行邏輯
     """
 
-    def __init__(self, queue: SQLiteQueue, warehouse: DataWarehouse, client_factory: ClientFactory):
+    def __init__(
+        self,
+        queue: SQLiteQueue,
+        warehouse: DataWarehouse,
+        client_factory: ClientFactory,
+        cache_only: bool = False,
+    ):
         """
         初始化核心服務。
 
@@ -36,10 +42,12 @@ class PrometheusService:
             queue: 用於日誌記錄和性能監控的消息隊列。
             warehouse: 用於存儲和檢索時間序列數據的數據倉庫。
             client_factory: 用於創建到外部數據源客戶端的工廠。
+            cache_only (bool): 如果為 True，則強制服務只使用快取數據。
         """
         self.queue = queue
         self.warehouse = warehouse
         self.client_factory = client_factory
+        self.cache_only = cache_only
         self.factors_config = [
             {
                 "name": "VIX 恐慌指數",
@@ -79,22 +87,25 @@ class PrometheusService:
             step_name = f"get_factor_{config['symbol']}"
             start_time = time.time()
 
-            try:
-                # 1. 主數據源
-                live_data = self._fetch_live_data(config)
-                if not live_data.empty:
-                    self.warehouse.save_data(config["symbol"], live_data)
-                    processed_data, _ = self._process_data(live_data, config["value_col"])
-                    self.queue.log_performance("factor_fetch", f"{step_name}_live_success", time.time() - start_time)
-                    all_factors.append(Factor(category=config["category"], name=config["name"], **processed_data))
-                    continue
-                else:
-                    raise ValueError("即時數據源返回了空的 DataFrame。")
-            except Exception as e:
-                self.queue.log_performance("factor_fetch", f"{step_name}_live_fail", time.time() - start_time)
-                print(f"警告: 即時獲取 {config['name']} 失敗: {e}")
+            if not self.cache_only:
+                try:
+                    # 1. 主數據源
+                    live_data = self._fetch_live_data(config)
+                    if not live_data.empty:
+                        self.warehouse.save_data(config["symbol"], live_data)
+                        processed_data, _ = self._process_data(live_data, config["value_col"])
+                        self.queue.log_performance(
+                            "factor_fetch", f"{step_name}_live_success", time.time() - start_time
+                        )
+                        all_factors.append(Factor(category=config["category"], name=config["name"], **processed_data))
+                        continue
+                    else:
+                        raise ValueError("即時數據源返回了空的 DataFrame。")
+                except Exception as e:
+                    self.queue.log_performance("factor_fetch", f"{step_name}_live_fail", time.time() - start_time)
+                    print(f"警告: 即時獲取 {config['name']} 失敗: {e}")
 
-            # 2. 服務降級 (快取)
+            # 2. 服務降級 (快取) 或唯快取模式
             cached_data = self.warehouse.get_data(config["symbol"], staleness_days=365)
             if cached_data is not None:
                 # 在從倉庫加載數據時，假設 value 列是 'data_value'

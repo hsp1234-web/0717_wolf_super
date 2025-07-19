@@ -21,7 +21,8 @@ DASHBOARD_URL = f"{BASE_URL}/static/dashboard.html"
 def setup_test_data():
     """準備回測所需的測試數據"""
     warehouse = DataWarehouse(db_path="data/warehouse.duckdb")
-    warehouse.connection.execute("DROP TABLE IF EXISTS factors")
+    with warehouse._get_connection() as conn:
+        conn.execute("DROP TABLE IF EXISTS factors")
 
     dates = pd.to_datetime(pd.date_range(start="2023-01-01", periods=100, freq="D"))
     data = {
@@ -37,7 +38,10 @@ def setup_test_data():
     }
     df = pd.DataFrame(data)
 
-    warehouse.save_table(df, "factors", if_exists="replace")
+    # save_data 期望每個 symbol 有一個 DataFrame
+    for symbol, group in df.groupby("symbol"):
+        warehouse.save_data(symbol, group)
+
     print("✅ 測試數據已植入。")
 
 
@@ -100,6 +104,8 @@ def test_odin_vision_full_backtest_flow(full_system_up):
             expect(run_button).to_be_enabled(timeout=15000)
             run_button.click()
             print("  - 已點擊執行策略回測按鈕。")
+
+            time.sleep(1)
 
             expect(run_button).to_have_text("回測執行中...", timeout=15000)
             print("  - 按鈕狀態已變為執行中。")

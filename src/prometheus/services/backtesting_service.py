@@ -72,7 +72,11 @@ class BacktestingService:
         從數據庫加載並合併因子與目標資產價格數據。
         """
         # 1. 加載所有因子數據
+        print("Fetching table 'factors' from db...")
         all_factors_df = self.db_manager.fetch_table("factors")
+        print(f"Loaded {len(all_factors_df)} rows from 'factors' table.")
+        if all_factors_df.empty:
+            return pd.DataFrame()
         if "open" not in all_factors_df.columns:
             all_factors_df["open"] = all_factors_df["close"]
             all_factors_df["high"] = all_factors_df["close"]
@@ -110,10 +114,12 @@ class BacktestingService:
         """
         使用 backtrader 執行一次完整的策略回測。
         """
+        print(f"Running backtest for strategy: {strategy.id}")
         cerebro = bt.Cerebro()
 
         # 1. 數據加載和預處理
         data_df = self._load_data(strategy)
+        print(f"Loaded data for backtest: {len(data_df)} rows")
         if data_df.empty or len(data_df) < 2:
             print(f"WARN: 策略 {strategy.target_asset} 的數據不足，跳過回測。")
             return PerformanceReport()

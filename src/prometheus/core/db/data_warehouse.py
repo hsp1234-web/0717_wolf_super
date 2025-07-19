@@ -27,7 +27,10 @@ class DataWarehouse:
                 f"CREATE TABLE IF NOT EXISTS {table_name} (timestamp TIMESTAMP, data_value DOUBLE, fetched_at TIMESTAMP)"
             )
             # 為了簡化，我們只儲存單一數值列，並重新命名
-            df_to_save = data[[data.columns[0]]].copy()
+            if "close" in data.columns:
+                df_to_save = data[["close"]].copy()
+            else:
+                df_to_save = data[[data.columns[0]]].copy()
             df_to_save.columns = ["data_value"]
             df_to_save["timestamp"] = pd.to_datetime(df_to_save.index)
             df_to_save["fetched_at"] = datetime.now()

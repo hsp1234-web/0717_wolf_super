@@ -6,7 +6,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 # 定義所有共享資源的絕對路徑 (Path 物件)
-DB_PATH = PROJECT_ROOT / "tasks.sqlite"
+DB_PATH = PROJECT_ROOT / "data" / "test_prometheus.db"
 LOG_PATH = PROJECT_ROOT / "prometheus_system.log"
 CONFIG_PATH = PROJECT_ROOT / "config.yml"
 WEB_DIR = PROJECT_ROOT / "src" / "prometheus" / "web"

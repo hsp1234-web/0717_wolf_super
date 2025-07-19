@@ -286,7 +286,11 @@ class LoadStockDataStep(BaseStep):
         for symbol in self.symbols:
             try:
                 self.logger.debug(f"正在為 {symbol} 獲取數據...")
-                stock_data = await self.yfinance_client.fetch_data(symbol, period="1y")  # 載入一年數據作為範例
+                end_date = pd.to_datetime("today").strftime("%Y-%m-%d")
+                start_date = (pd.to_datetime("today") - pd.DateOffset(years=1)).strftime("%Y-%m-%d")
+                stock_data = self.yfinance_client.fetch_data(
+                    symbol, start_date=start_date, end_date=end_date
+                )
                 if stock_data.empty:
                     self.logger.warning(f"無法為 {symbol} 獲取數據，可能該代號無效或無數據。")
                     continue
@@ -301,7 +305,7 @@ class LoadStockDataStep(BaseStep):
         if not all_data:
             self.logger.error("未能加載任何股票數據。")
             # 返回一個空的 DataFrame，下游步驟應能處理這種情況
-            return pd.DataFrame()
+            return pd.DataFrame(columns=["symbol"])
 
         # 將所有數據合併成一個大的 DataFrame
         combined_df = pd.concat(all_data)
@@ -309,7 +313,7 @@ class LoadStockDataStep(BaseStep):
 
         # --- [修復] ---
         # 將所有列名標準化為小寫，以避免與數據庫模式的大小寫不匹配問題
-        combined_df.columns = [col.lower() for col in combined_df.columns]
+        combined_df.columns = ["_".join(col).lower() if isinstance(col, tuple) else col.lower() for col in combined_df.columns]
 
         # 重置索引，因為 yfinance 返回的數據中，日期是索引
         combined_df = combined_df.reset_index()
@@ -348,7 +352,11 @@ class LoadCryptoDataStep(BaseStep):
             try:
                 self.logger.debug(f"正在為 {symbol} 獲取數據...")
                 # 為加密貨幣獲取更長的歷史數據以進行相關性計算
-                crypto_data = await self.yfinance_client.fetch_data(symbol, period="2y")
+                end_date = pd.to_datetime("today").strftime("%Y-%m-%d")
+                start_date = (pd.to_datetime("today") - pd.DateOffset(years=2)).strftime("%Y-%m-%d")
+                crypto_data = self.yfinance_client.fetch_data(
+                    symbol, start_date=start_date, end_date=end_date
+                )
                 if crypto_data.empty:
                     self.logger.warning(f"無法為 {symbol} 獲取數據，可能該代號無效或無數據。")
                     continue
@@ -362,14 +370,14 @@ class LoadCryptoDataStep(BaseStep):
 
         if not all_data:
             self.logger.error("未能加載任何加密貨幣數據。")
-            return pd.DataFrame()
+            return pd.DataFrame(columns=["symbol"])
 
         combined_df = pd.concat(all_data)
         self.logger.info(f"成功加載並合併了 {len(all_data)} 種加密貨幣的數據。")
 
         # --- [修復] ---
         # 將所有列名標準化為小寫，以避免與數據庫模式的大小寫不匹配問題
-        combined_df.columns = [col.lower() for col in combined_df.columns]
+        combined_df.columns = ["_".join(col).lower() if isinstance(col, tuple) else col.lower() for col in combined_df.columns]
 
         # 重置索引，因為 yfinance 返回的數據中，日期是索引
         combined_df = combined_df.reset_index()
