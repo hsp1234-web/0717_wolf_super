@@ -33,9 +33,11 @@
 - `core/analysis/mock_data_engine.py`: **模擬數據引擎**。在「作戰演習模式」下取代真實數據引擎，用於快速測試。
 - `core/queue/sqlite_queue.py`: **任務佇列**。基於 `sqlite3` 的同步任務佇列。
 - `entrypoints/query_gateway.py`: **FastAPI 應用**。定義了所有 Web API 端點，是前端與後端溝通的橋樑。
+- `entrypoints/olympus_api.py`: **「普羅米修斯之腦」API 核心**。提供非同步 AI 訓練任務的 FastAPI 服務。
 - `web/dashboard.html`: **前端指揮中心**。使用者與系統互動的主介面。
 
 ### `tests/`
+- `test_api_contract.py`: **「API 聖約」功能契約**。用以驗證 `olympus_api.py` 是否遵守其 API 承諾的整合測試。
 - `conftest.py`: **測試設定**。`Pytest` 的本地插件檔案，用於定義所有測試共享的 `fixtures`。
 - `fixtures/`: **測試數據**。存放所有測試案例所需的靜態數據檔案。
 - `integration/`: **整合測試**。

@@ -44,6 +44,7 @@ pytest-timeout = "^2.3.1"
 
 # --- 如果不存在則新增，如果存在則更新 [tool.ruff] 和 [tool.ruff.lint] ---
 playwright = "^1.53.0"
+httpx = "^0.28.1"
 [tool.ruff]
 line-length = 88
 # 告知 Ruff 我們的原始碼目錄
