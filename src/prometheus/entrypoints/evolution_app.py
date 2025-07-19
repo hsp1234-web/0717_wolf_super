@@ -1,138 +1,52 @@
-import json
-import random
-import uuid
-from pathlib import Path
+import time
+from src.prometheus.core.config import load_config
+from src.prometheus.core.db.db_manager import DBManager
+from src.prometheus.core.logging.log_manager import LogManager
+from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
+from src.prometheus.services.evolution_chamber import EvolutionChamber
 
-from deap import tools
-from prometheus.core.logging.log_manager import LogManager
-from prometheus.core.queue.sqlite_queue import SQLiteQueue
-from prometheus.services.checkpoint_manager import CheckpointManager
-from prometheus.services.evolution_chamber import EvolutionChamber
-
-# --- 演化設定 ---
-POPULATION_SIZE = 10
-MAX_GENERATIONS = 5
-CHECKPOINT_FREQ = 2
-
-# --- 檔案路徑 ---
-HALL_OF_FAME_PATH = Path("data/hall_of_fame.json")
-CHECKPOINT_PATH = Path("data/checkpoints/evolution_state.pkl")
-
-# 初始化日誌記錄器
-logger = LogManager.get_instance().get_logger("Evolution-Engine")
-
-
-def evolution_loop(
-    task_queue: SQLiteQueue,
-    results_queue: SQLiteQueue,
-    resume: bool = False,
-    clean: bool = False,
-):
+# << 新增函式封裝 >>
+def run_evolution(generations: int, population_size: int):
     """
-    智慧演化引擎 v4：整合了結構化日誌與萬象引擎。
+    執行策略演化主流程。
+
+    Args:
+        generations (int): 演化的最大世代數。
+        population_size (int): 每一代的族群大小。
     """
-    logger.info("策略演化引擎已啟動...")
-    chamber = EvolutionChamber()
-    checkpoint_manager = CheckpointManager(CHECKPOINT_PATH)
+    config = load_config()
+    log_manager = LogManager()
+    logger = log_manager.get_logger(__name__)
 
-    start_gen = 0
-    population = None
-    hall_of_fame = tools.HallOfFame(1)
+    db_manager = DBManager(config["db_path"])
+    queue = SQLiteQueue(db_manager)
+    evolution_chamber = EvolutionChamber(queue, log_manager)
 
-    if clean:
-        logger.info("--clean 模式：將進行一次全新的演化。")
-        checkpoint_manager.clear_checkpoint()
+    logger.info("正在初始化演化室...")
+    evolution_chamber.initialize_population(population_size)
+    logger.info("演化室初始化完成。")
 
-    if resume:
-        state = checkpoint_manager.load_checkpoint()
-        if state:
-            population = state["population"]
-            start_gen = state["generation"] + 1
-            hall_of_fame = state["hall_of_fame"]
-            random.setstate(state["random_state"])
-            logger.info(f"從第 {start_gen} 代恢復演化。")
+    for gen in range(generations):
+        logger.info(f"--- 開始演化第 {gen + 1} 代 ---")
+        evolution_chamber.evolve_one_generation()
+        logger.info("等待回測工人完成計算...")
 
-    if population is None:
-        logger.info("正在創建初始族群...")
-        population = chamber.create_population(n=POPULATION_SIZE)
+        # 等待所有回測任務完成
+        while not queue.is_empty("backtest_tasks"):
+            time.sleep(5)
 
-    # --- 演化主迴圈 ---
-    for gen in range(start_gen, MAX_GENERATIONS):
-        logger.info(f"正在處理第 {gen} 代...")
+        logger.info("回測計算完成，正在評估適應度...")
+        evolution_chamber.evaluate_fitness()
+        logger.info(f"--- 第 {gen + 1} 代演化完成 ---")
 
-        pending_tasks = {}
-        for i, individual in enumerate(population):
-            task_id = str(uuid.uuid4())
-            genome_task = {"id": task_id, "params": individual}
-            task_queue.put((task_id, genome_task))
-            pending_tasks[task_id] = individual
-            logger.debug(f"已發送任務: {genome_task}")
+    best_individual = evolution_chamber.get_best_individual()
+    logger.info(f"演化完成！最佳策略基因: {best_individual}")
+    logger.info(f"最佳策略適應度: {best_individual.fitness.values[0]}")
 
-        logger.info("等待所有回測結果...")
-        evaluated_count = 0
-        while evaluated_count < len(pending_tasks):
-            result = results_queue.get(block=True, timeout=20)
-            if result:
-                if isinstance(result, tuple) and len(result) == 2:
-                    _, result_payload = result
-                else:
-                    result_payload = result
 
-                if not result_payload:
-                    continue
-
-                genome_id = result_payload.get("genome_id")
-                if genome_id in pending_tasks:
-                    individual = pending_tasks.pop(genome_id)
-                    report = result_payload.get("report", {})
-                    fitness = report.get("sharpe_ratio", -1.0) if report.get("is_valid") else -1.0
-                    individual.fitness.values = (fitness,)
-                    evaluated_count += 1
-                    logger.debug(f"收到結果: {genome_id}, 適應度: {fitness:.2f} ({evaluated_count}/{len(population)})")
-            else:
-                logger.warning("等待結果超時，可能部分任務已丟失。")
-                for task_id in pending_tasks:
-                    pending_tasks[task_id].fitness.values = (-1.0,)
-                    evaluated_count += 1
-                break
-
-        hall_of_fame.update(population)
-
-        if len(hall_of_fame) > 0:
-            best_ind = hall_of_fame[0]
-            logger.info(f"第 {gen} 代最佳策略: 夏普比率 = {best_ind.fitness.values[0]:.2f}, 基因 = {best_ind}")
-
-        if (gen + 1) % CHECKPOINT_FREQ == 0:
-            current_state = {
-                "population": population,
-                "generation": gen,
-                "hall_of_fame": hall_of_fame,
-                "random_state": random.getstate(),
-            }
-            checkpoint_manager.save_checkpoint(current_state)
-
-        if gen < MAX_GENERATIONS - 1:
-            logger.info("正在產生下一代族群...")
-            offspring = chamber.select_offspring(population)
-            new_population = chamber.apply_mating_and_mutation(offspring)
-            if len(hall_of_fame) > 0:
-                new_population[0] = hall_of_fame[0]
-            population = new_population
-
-    logger.info("演化完成")
-    if len(hall_of_fame) > 0:
-        best_overall = hall_of_fame[0]
-        logger.info(f"歷史最佳策略 (名人堂): 夏普比率 = {best_overall.fitness.values[0]:.2f}, 基因 = {best_overall}")
-
-        try:
-            HALL_OF_FAME_PATH.parent.mkdir(exist_ok=True, parents=True)
-            with open(HALL_OF_FAME_PATH, "w") as f:
-                fitness_data = {"sharpe_ratio": best_overall.fitness.values[0]}
-                # 將 deap 個體轉換為可序列化的列表
-                genome_list = list(best_overall)
-                json.dump([{"params": genome_list, "fitness": fitness_data}], f, indent=4)
-            logger.info(f"名人堂已儲存至: {HALL_OF_FAME_PATH}")
-        except Exception as e:
-            logger.error(f"儲存名人堂失敗: {e}", exc_info=True)
-
-    logger.info("演化引擎已停止。")
+# 主程式進入點 (保持不變，用於直接執行)
+if __name__ == "__main__":
+    # 這裡可以設置預設值或從環境變數讀取
+    MAX_GENERATIONS = 50
+    POPULATION_SIZE = 100
+    run_evolution(generations=MAX_GENERATIONS, population_size=POPULATION_SIZE)
