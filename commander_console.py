@@ -4,10 +4,10 @@
 import typer
 from src.prometheus.pipelines.p4_stock_factor_generation import P4_StockFactorGeneration
 from src.prometheus.pipelines.p5_crypto_factor_generation import P5_CryptoFactorGeneration
-from src.prometheus.entrypoints.evolution_app import run_evolution  # << 新增導入
+from src.prometheus.entrypoints.evolution_app import run_evolution
+from src.prometheus.services.strategy_reporter import StrategyReporter # << 新增導入
 from src.prometheus.core.logging.log_manager import LogManager
 
-# 初始化應用
 app = typer.Typer()
 log_manager = LogManager()
 
@@ -33,7 +33,6 @@ def build_feature_store():
 
     logger.info("====== 因子儲存庫已成功建立！ ======")
 
-# << 新增區塊開始 >>
 @app.command(name="evolve-strategies", help="啟動遺傳演算法，自動演化交易策略。")
 def evolve_strategies(
     max_generations: int = typer.Option(50, "--generations", "-g", help="演化的最大世代數。"),
@@ -51,6 +50,27 @@ def evolve_strategies(
         logger.info("====== 策略演化任務成功完成！ ======")
     except Exception as e:
         logger.error(f"策略演化過程中發生致命錯誤: {e}", exc_info=True)
+        raise typer.Exit(code=1)
+
+# << 新增區塊開始 >>
+@app.command(name="report-best-strategy", help="顯示演化出的最佳策略報告。")
+def report_best_strategy():
+    """
+    產生並顯示當前儲存的最佳策略報告。
+    """
+    logger = log_manager.get_logger(__name__)
+    logger.info("====== 指揮官命令：產生最佳策略報告 ======")
+
+    try:
+        reporter = StrategyReporter(log_manager)
+        report = reporter.generate_report()
+
+        # 使用 typer.echo 來打印，以獲得更好的格式控制
+        typer.echo("\n" + report + "\n")
+
+        logger.info("====== 報告成功產生！ ======")
+    except Exception as e:
+        logger.error(f"產生報告時發生致命錯誤: {e}", exc_info=True)
         raise typer.Exit(code=1)
 # << 新增區塊結束 >>
 
