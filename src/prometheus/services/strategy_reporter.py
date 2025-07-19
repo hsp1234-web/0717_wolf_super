@@ -2,7 +2,7 @@
 策略報告服務
 負責從資料庫中提取最佳策略並生成報告。
 """
-from src.prometheus.core.config import load_config
+from src.prometheus.core.config import config
 from src.prometheus.core.db.db_manager import DBManager
 from src.prometheus.core.logging.log_manager import LogManager
 
@@ -11,10 +11,10 @@ class StrategyReporter:
     生成最佳策略報告的服務。
     """
     def __init__(self, log_manager: LogManager):
-        self.config = load_config()
+        self.config = config
         self.log_manager = log_manager
         self.logger = self.log_manager.get_logger(__name__)
-        self.db_manager = DBManager(self.config["db_path"])
+        self.db_manager = DBManager(self.config.get("database.main_db_path"))
 
     def generate_report(self) -> str:
         """

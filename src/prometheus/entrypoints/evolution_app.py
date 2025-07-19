@@ -1,5 +1,5 @@
 import time
-from src.prometheus.core.config import load_config
+from src.prometheus.core.config import config
 from src.prometheus.core.db.db_manager import DBManager
 from src.prometheus.core.logging.log_manager import LogManager
 from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
@@ -14,11 +14,10 @@ def run_evolution(generations: int, population_size: int):
         generations (int): 演化的最大世代數。
         population_size (int): 每一代的族群大小。
     """
-    config = load_config()
     log_manager = LogManager()
     logger = log_manager.get_logger(__name__)
 
-    db_manager = DBManager(config["db_path"])
+    db_manager = DBManager(config.get("database.main_db_path"))
     queue = SQLiteQueue(db_manager)
     evolution_chamber = EvolutionChamber(queue, log_manager)
 

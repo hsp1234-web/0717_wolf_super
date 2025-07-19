@@ -1,44 +1,47 @@
 # 專案檔案詞彙表
 
-本文件旨在提供專案中關鍵檔案與目錄的用途說明。
+本文件提供專案中所有重要檔案與目錄的用途說明。
 
-## 核心目錄
+## 根目錄
 
-- `src/prometheus/`: 專案所有核心 Python 原始碼的根目錄。
-- `src/prometheus/core/`: 存放專案最核心的、可重用的模組。
-- `src.prometheus/entrypoints/`: 專案的服務入口點，例如 API 伺服器。
-- `src/prometheus/web/`: 存放 Web 前端相關檔案 (HTML, JS, CSS)。
-- `tests/`: 存放所有自動化測試檔案。
+| 檔案/目錄 | 用途 |
+| :--- | :--- |
+| `README.md` | **專案的「活的儀表板」**，提供系統能力清單與執行命令。 |
+| `commander_console.py` | **後台任務的「萬能鑰匙」**，所有離線作戰能力的唯一入口。 |
+| `config.yml` | 專案的主要設定檔，包含資料庫路徑、API 金鑰等。 |
+| `gunicorn.conf.py` | Gunicorn 伺服器的設定檔，用於設定工人數量、綁定端口等。 |
+| `mypy.ini` | MyPy 靜態型別檢查工具的設定檔。 |
+| `poetry.lock` | Poetry 相依性管理工具的鎖定檔，確保在不同環境中使用完全相同的套件版本。 |
+| `preflight-check.sh` | **作戰資格預檢驗腳本**，執行全面的靜態分析、依賴檢查與測試。 |
+| `pyproject.toml` | Poetry 的專案設定檔，定義專案元數據、相依性與工具鏈設定。 |
+| `pytest.ini` | Pytest 測試框架的設定檔。 |
+| `rapid-check.sh` | **快速整合檢查腳本**，執行一組快速的靜態分析與核心整合測試。 |
+| `real_worker.py` | **真實的背景工人**，負責執行由 API 伺服器分派的非同步任務。 |
+| `run.py` | **核心服務啟動器**，使用 Gunicorn 啟動 API 伺服器與背景工人蜂群。 |
+| `src/` | **專案原始碼**，所有核心邏輯的所在地。 |
+| `tests/` | **自動化測試套件**，包含所有單元、整合與 E2E 測試。 |
 
-## 關鍵檔案說明
+## `src/` 目錄
 
-### 根目錄
-- `run.py`: **新的系統總啟動器**。用於啟動生產級服務。
-- `gunicorn.conf.py`: **Gunicorn 配置文件**。定義了 API 伺服器集群的工人數量、日誌等生產級參數。
-- `real_worker.py`: **實戰工人程序**。可並行啟動多個，負責從任務佇列中領取並執行真正的分析任務。
-- `mock_worker.py`: **模擬工人程序**。在「作戰演習模式」下，取代 `real_worker.py`，使用模擬數據進行快速測試。
-- `config.yml`: **全局設定檔**。包含了 API 金鑰、資料庫路徑以及因子定義。
-- `poetry.lock`: **Poetry 鎖定檔案**。
-- `pyproject.toml`: **Poetry 專案設定檔**。
-- `pytest.ini`: **Pytest 設定檔**。
-- `mypy.ini`: **Mypy 設定檔**。
-- `test_sentinel_robustness.py`: **「哨兵」測試腳本**。我們最先進的整合測試腳本，用於驗證系統的穩定性與正確性。
-- `test_dashboard_final.py`, `test_dynamic_dashboard.py`, `test_fast_integration.py`, `test_history_system.py`, `test_hive_system.py`, `test_hydra_system.py`, `test_interactive_dashboard.py`, `test_monitoring_system.py`, `test_probe_enhanced.py`, `test_real_system.py`, `test_swarm_throughput.py`: **整合測試腳本**。
+| 檔案/目錄 | 用途 |
+| :--- | :--- |
+| `src/prometheus/` | 專案的主要命名空間。 |
+| `src/prometheus/cli/` | 命令列介面相關的程式碼。 |
+| `src/prometheus/core/` | 專案的核心元件，包含設定、資料庫、引擎等。 |
+| `src/prometheus/entrypoints/` | 專案的各個進入點，例如 API 伺服器、背景工人應用等。 |
+| `src/prometheus/models/` | 資料模型定義。 |
+| `src/prometheus/pipelines/` | 資料處理管線的定義。 |
+| `src/prometheus/services/` | 專案的服務層，封裝了特定的業務邏輯。 |
+| `src/prometheus/web/` | Web 前端相關的檔案。 |
 
-### `src/prometheus/`
-- `cli/main.py`: **命令列介面**。`Typer` 應用的主要實作。
-- `core/constants.py`: **「羅盤」**。使用 `pathlib` 定義所有共享資源的絕對路徑，是確保系統穩定的基石。
-- `core/logging_config.py`: **「瞭望塔」**。配置全域統一日誌系統，將所有程序的日誌匯總至單一檔案。
-- `core/analysis/data_engine.py`: **真實數據引擎**。
-- `core/analysis/mock_data_engine.py`: **模擬數據引擎**。在「作戰演習模式」下取代真實數據引擎，用於快速測試。
-- `core/queue/sqlite_queue.py`: **任務佇列**。基於 `sqlite3` 的同步任務佇列。
-- `entrypoints/query_gateway.py`: **FastAPI 應用**。定義了所有 Web API 端點，是前端與後端溝通的橋樑。
-- `web/dashboard.html`: **前端指揮中心**。使用者與系統互動的主介面。
+## `tests/` 目錄
 
-### `tests/`
-- `conftest.py`: **測試設定**。`Pytest` 的本地插件檔案，用於定義所有測試共享的 `fixtures`。
-- `fixtures/`: **測試數據**。存放所有測試案例所需的靜態數據檔案。
-- `integration/`: **整合測試**。
-- `unit/`: **單元測試**。
-- `ignition_test.py`: **點火測試**。
-- `test_p0_downloader.py`: **下載器測試**。
+| 檔案/目錄 | 用途 |
+| :--- | :--- |
+| `tests/conftest.py` | Pytest 的設定檔，提供測試固件 (fixtures)。 |
+| `tests/e2e/` | 端對端 (End-to-End) 測試。 |
+| `tests/fixtures/` | 測試所使用的假資料或檔案。 |
+| `tests/ignition_test.py` | **架構點火測試**，確保所有核心模組都可以被成功匯入。 |
+| `tests/integration/` | 整合測試。 |
+| `tests/test_capabilities.py` | **功能契約測試**，驗證 `README.md` 中定義的所有能力。 |
+| `tests/unit/` | 單元測試。 |
