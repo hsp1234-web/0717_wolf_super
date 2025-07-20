@@ -15,7 +15,7 @@ workers = (multiprocessing.cpu_count() * 2) + 1
 worker_class = "uvicorn.workers.UvicornWorker"
 
 # 日誌設定
-loglevel = "info"
+loglevel = "debug"
 accesslog = "-"  # 將訪問日誌輸出到標準輸出
 errorlog = "-"   # 將錯誤日誌輸出到標準輸出
 
