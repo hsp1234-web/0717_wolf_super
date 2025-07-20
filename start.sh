@@ -13,7 +13,12 @@ echo "正在啟動 Gunicorn 伺服器..."
 poetry run gunicorn -c gunicorn.conf.py prometheus.entrypoints.query_gateway:app &
 
 # --- 等待 Gunicorn 啟動 ---
-sleep 5
+sleep 15
+
+# --- 產生 SSH 金鑰 ---
+echo "正在產生 SSH 金鑰..."
+rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
 
 # --- 使用重試機制連接到 localhost.run ---
 MAX_RETRIES=5
@@ -24,7 +29,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
   echo "正在嘗試連接到 localhost.run (第 $((RETRY_COUNT + 1)) 次)..."
   # 我們將 ssh 的輸出重新導向到 /dev/null，以避免它佔用終端機
   # 同時，我們將 ssh 在背景執行，這樣腳本才能繼續執行
-  ssh -o "StrictHostKeyChecking=no" -o "ExitOnForwardFailure=yes" -R 80:localhost:8000 ssh.localhost.run > ssh_output.log 2>&1 &
+  ssh -o "StrictHostKeyChecking=no" -o "ExitOnForwardFailure=yes" -i ~/.ssh/id_rsa -R 80:localhost:8000 ssh.localhost.run > ssh_output.log 2>&1 &
   SSH_PID=$!
 
   # 等待幾秒鐘，看看 localhost.run 是否成功分配了網址

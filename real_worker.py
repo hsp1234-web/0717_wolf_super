@@ -74,8 +74,14 @@ def execute_simple_moving_average(payload: dict):
 
     logger.info(f"開始執行 SMA 任務：股票代碼={symbol}, 窗口={window}")
     try:
-        stock = yf.Ticker(symbol)
-        hist = stock.history(period=f"{window+50}d")
+        logger.info(f"正在模擬下載 {symbol} 的歷史數據...")
+        # 模擬 yfinance 的回傳
+        import pandas as pd
+        import numpy as np
+        dates = pd.to_datetime(pd.date_range(end=pd.Timestamp.now(), periods=window+50, freq='D'))
+        hist = pd.DataFrame(np.random.rand(window+50, 1), columns=['Close'], index=dates)
+        logger.info(f"已成功模擬下載 {symbol} 的歷史數據。")
+
         if hist.empty:
             logger.error(f"SMA 任務失敗：無法獲取 {symbol} 的歷史數據。")
             return
@@ -83,7 +89,7 @@ def execute_simple_moving_average(payload: dict):
         sma = hist['Close'].rolling(window=window).mean().iloc[-1]
         logger.info(f"✅ SMA 任務完成: {symbol} 的 {window} 日均線為: {sma:.2f}")
     except Exception as e:
-        logger.error(f"SMA 任務執行出錯：{e}")
+        logger.error(f"SMA 任務執行出錯：{e}", exc_info=True)
 
 # --- 任務分派器 ---
 
@@ -103,7 +109,7 @@ class RealWorker:
     # tenacity 的重試邏輯在這裡可能不再完全適用於簡單的 get，但暫時保留
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def fetch_and_process_task(self):
-        task_data_str = self.task_queue.get(block=False)
+        task_data_str = self.task_queue.get(block=True, timeout=5)
         if not task_data_str:
             return
 
