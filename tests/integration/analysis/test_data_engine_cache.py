@@ -101,7 +101,7 @@ def test_cache_miss_and_write(
     assert db_result["spy_close"].iloc[0] == 500.0
 
 
-@patch("core.clients.yfinance.YFinanceClient.fetch_data")  # Mock API 客戶端
+@patch("prometheus.core.clients.yfinance.YFinanceClient.fetch_data")  # Mock API 客戶端
 def test_cache_hit(mock_fetch_data, temp_db_data_engine):
     """
     測試案例：當數據已存在於快取中，不應再次觸發 API 呼叫。
@@ -112,10 +112,16 @@ def test_cache_hit(mock_fetch_data, temp_db_data_engine):
 
     # 第一次寫入
     with (
-        patch("core.analysis.data_engine.DataEngine._calculate_technicals"),
-        patch("core.analysis.data_engine.DataEngine._calculate_approx_credit_spread"),
-        patch("core.analysis.data_engine.DataEngine._calculate_proxy_move"),
-        patch("core.analysis.data_engine.DataEngine._calculate_gold_copper_ratio"),
+        patch(
+            "prometheus.core.analysis.data_engine.DataEngine._calculate_technicals"
+        ),
+        patch(
+            "prometheus.core.analysis.data_engine.DataEngine._calculate_approx_credit_spread"
+        ),
+        patch("prometheus.core.analysis.data_engine.DataEngine._calculate_proxy_move"),
+        patch(
+            "prometheus.core.analysis.data_engine.DataEngine._calculate_gold_copper_ratio"
+        ),
     ):
         temp_db_data_engine.generate_snapshot(dt)
 

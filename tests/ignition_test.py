@@ -37,36 +37,9 @@ def test_gateway_ignition():
         pytest.fail(f"API Gateway 初始化時發生非預期的錯誤: {e}")
 
 
-def test_worker_ignition():
-    """
-    點火測試：驗證「作戰工人」(Real Worker) 的導入鏈是否完好。
-    """
-    try:
-        # 為了可測試性，我們期望 real_worker.py 將其核心應用或對象命名為 `real_worker_app`
-        from src.prometheus.entrypoints import real_worker_app
-        assert real_worker_app is not None, "Real Worker 的核心應用 (app) 物件不存在。"
-    except ImportError as e:
-        pytest.fail(f"Real Worker 導入失敗: {e}")
-    except AttributeError:
-        pytest.fail("Real Worker 模組中缺少 'real_worker_app' 物件，請確認其核心邏輯已被封裝並暴露。")
-    except Exception as e:
-        pytest.fail(f"Real Worker 初始化時發生非預期的錯誤: {e}")
-
-
-def test_db_init_ignition():
-    """
-    點火測試：驗證「地基工程」(DB Init) 腳本的導入鏈是否完好。
-    """
-    try:
-        # 為了可測試性，我們期望 db_init.py 將其核心應用或對象命名為 `db_init_app`
-        from src.prometheus.entrypoints import db_init_app
-        assert db_init_app is not None, "DB Init 的核心應用 (app) 物件不存在。"
-    except ImportError as e:
-        pytest.fail(f"DB Init script 導入失敗: {e}")
-    except AttributeError:
-        pytest.fail("DB Init 模組中缺少 'db_init_app' 物件，請確認其核心邏輯已被封裝並暴露。")
-    except Exception as e:
-        pytest.fail(f"DB Init script 初始化時發生非預期的錯誤: {e}")
+# 這兩個測試的目標檔案已被刪除，因此測試本身也應被移除。
+# def test_worker_ignition(): ...
+# def test_db_init_ignition(): ...
 
 
 # --- 「磐石協議」通用模組導入測試 ---

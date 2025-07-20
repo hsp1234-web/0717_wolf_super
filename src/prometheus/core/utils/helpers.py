@@ -158,5 +158,11 @@ def read_file_content(file_path: str) -> Optional[bytes]:
     return None
 
 
+def get_header_fingerprint(header_line: str) -> str:
+    """對標準化後的標頭計算指紋。"""
+    import hashlib
+    normalized_header = "".join(header_line.lower().split()).replace('"', "")
+    return hashlib.sha256(normalized_header.encode("utf-8")).hexdigest()
+
 def correct_path():
     pass

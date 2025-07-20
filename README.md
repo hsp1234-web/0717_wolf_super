@@ -25,7 +25,7 @@ poetry install
 ### 2. 啟動生產級服務
 執行以下指令，將會一次性啟動由 Gunicorn 管理的 API 伺服器集群，以及一個由多個工人程序組成的「工人蜂群」。
 ```bash
-poetry run python run.py start_services
+poetry run python -m src.prometheus.cli.main services start
 ```
 服務啟動後，即可在瀏覽器中訪問 http://127.0.0.1:8000 進入作戰指揮中心。
 

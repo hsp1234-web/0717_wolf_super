@@ -30,22 +30,18 @@ def test_initialization(temp_db_path: Path):
 def test_put_and_qsize(queue: SQLiteQueue):
     """測試放入任務後，佇列的大小是否正確。"""
     assert queue.qsize() == 0
-    queue.put({"test": "task"})
+    queue.put({"task_id": "test1", "data": "task"})
     assert queue.qsize() == 1
 
 
 def test_get_retrieves_and_removes(queue: SQLiteQueue):
     """測試 get() 是否能取出任務，並從佇列中移除它。"""
-    task_payload = {"url": "http://example.com"}
+    task_payload = {"task_id": "test2", "url": "http://example.com"}
     queue.put(task_payload)
     assert queue.qsize() == 1
 
-    # 取得任務
     retrieved_task = queue.get(block=False)
-    assert retrieved_task is not None
-    assert retrieved_task["url"] == "http://example.com"
-
-    # 佇列應為空
+    assert retrieved_task == task_payload
     assert queue.qsize() == 0
 
 
@@ -58,7 +54,7 @@ def test_persistence(temp_db_path: Path):
     """測試任務是否能被持久化儲存。"""
     # 第一個佇列實例，放入任務
     queue1 = SQLiteQueue(temp_db_path)
-    queue1.put({"persistent": True})
+    queue1.put({"task_id": "persist_test", "persistent": True})
     assert queue1.qsize() == 1
     queue1.close()
 
@@ -68,5 +64,6 @@ def test_persistence(temp_db_path: Path):
     task = queue2.get(block=False)
     assert task is not None
     assert task["persistent"] is True
+    assert task["task_id"] == "persist_test"
     assert queue2.qsize() == 0
     queue2.close()

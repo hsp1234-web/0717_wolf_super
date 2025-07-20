@@ -75,11 +75,17 @@
                     const response = await fetch('/api/v1/submit_task', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ task_type: taskType })
+                        // 修正：根據後端 Pydantic 模型，補上 payload 欄位
+                        body: JSON.stringify({ task_type: taskType, payload: {} })
                     });
                     const result = await response.json();
-                    statusMsgElem.textContent = `任務已提交 (ID: ...${result.task_id.slice(-6)})，開始追蹤...`;
-                    pollingInterval = setInterval(() => checkTaskStatus(result.task_id), 2000);
+                    if (response.ok) {
+                        statusMsgElem.textContent = `任務已提交 (ID: ...${result.task_id.slice(-6)})，開始追蹤...`;
+                        pollingInterval = setInterval(() => checkTaskStatus(result.task_id), 2000);
+                    } else {
+                        statusMsgElem.textContent = `錯誤：提交任務失敗 - ${result.detail || '未知錯誤'}`;
+                        allButtons.forEach(btn => btn.disabled = false);
+                    }
                 } catch (error) {
                     statusMsgElem.textContent = '錯誤：提交任務失敗';
                     allButtons.forEach(btn => btn.disabled = false);

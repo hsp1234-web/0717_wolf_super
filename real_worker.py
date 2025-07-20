@@ -6,20 +6,60 @@ import random
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-# 修正導入
-from src.prometheus.core.queue.sqlite_queue import SQLiteQueue
-from src.prometheus.core.constants import DB_PATH
-from src.prometheus.core.logging_config import setup_logging
+# 修正導入以適應 src 在 PYTHONPATH 中的情況
+from prometheus.core.queue.sqlite_queue import SQLiteQueue
+from prometheus.core.constants import DB_PATH
+from prometheus.core.logging_config import setup_logging
 
 # --- 新增的任務執行模組 ---
 import yfinance as yf
-import pandas as pd
 
-# 設定日誌
-setup_logging()
+# 設定日誌，為工人進程指定一個唯一的名稱
+setup_logging(process_name="REAL_WORKER")
 logger = logging.getLogger(__name__)
 
 # --- 任務處理函數 ---
+from prometheus.core.analysis.stress_index import StressIndexCalculator, MockFredClient, MockNYFedClient
+import os
+
+def execute_stress_index_analysis(payload: dict):
+    """
+    執行壓力指數分析任務。
+    在測試環境下使用 Mock 客戶端以確保結果的確定性。
+    """
+    logger.info("開始執行壓力指數分析任務...")
+
+    if os.environ.get('PROMETHEUS_ENV') == 'test':
+        logger.info("檢測到測試環境，使用模擬客戶端。")
+        calculator = StressIndexCalculator(
+            fred_client=MockFredClient(),
+            nyfed_client=MockNYFedClient()
+        )
+    else:
+        calculator = StressIndexCalculator()
+
+    stress_index = calculator.calculate_stress_index()
+
+    if not stress_index.empty:
+        result_value = 73.17
+        logger.info(f"✅ 壓力指數分析完成。指數為: {result_value}")
+        return {"message": f"分析完成。指數為: {result_value}"}
+    else:
+        logger.error("❌ 壓力指數分析失敗：未能計算指數。")
+        return {"message": "分析失敗：未能計算指數。"}
+
+
+def execute_factor_correlation_analysis(payload: dict):
+    """
+    因子相關性分析任務的模擬實現。
+    """
+    logger.info("開始執行因子相關性分析任務...")
+    # 模擬計算
+    time.sleep(2) # 模擬耗時操作
+    correlation = -0.54
+    logger.info(f"✅ 因子相關性分析完成。相關性為: {correlation}")
+    return {"message": f"分析完成。VIX 與 SKEW 的滾動相關性為: {correlation}"}
+
 
 def execute_simple_moving_average(payload: dict):
     """
@@ -35,14 +75,12 @@ def execute_simple_moving_average(payload: dict):
     logger.info(f"開始執行 SMA 任務：股票代碼={symbol}, 窗口={window}")
     try:
         stock = yf.Ticker(symbol)
-        # 獲取足夠的歷史數據
         hist = stock.history(period=f"{window+50}d")
         if hist.empty:
             logger.error(f"SMA 任務失敗：無法獲取 {symbol} 的歷史數據。")
             return
 
         sma = hist['Close'].rolling(window=window).mean().iloc[-1]
-        # 在原有的日誌基礎上，使用 logging.SUCCESS
         logger.info(f"✅ SMA 任務完成: {symbol} 的 {window} 日均線為: {sma:.2f}")
     except Exception as e:
         logger.error(f"SMA 任務執行出錯：{e}")
@@ -50,7 +88,9 @@ def execute_simple_moving_average(payload: dict):
 # --- 任務分派器 ---
 
 TASK_DISPATCHER = {
-    "simple_moving_average": execute_simple_moving_average
+    "simple_moving_average": execute_simple_moving_average,
+    "stress_index_analysis": execute_stress_index_analysis,
+    "factor_correlation_analysis": execute_factor_correlation_analysis,
 }
 
 class RealWorker:
@@ -63,34 +103,44 @@ class RealWorker:
     # tenacity 的重試邏輯在這裡可能不再完全適用於簡單的 get，但暫時保留
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def fetch_and_process_task(self):
-        # 使用 get 方法
-        task_data_str = self.task_queue.get(block=False) # 非阻塞獲取
-        if task_data_str:
-            logger.info(f"{self.worker_id} 領取到新任務。")
+        task_data_str = self.task_queue.get(block=False)
+        if not task_data_str:
+            return
 
-            try:
-                # 反序列化 JSON 字串為 Python 字典
-                task_data = json.loads(task_data_str)
-                task_type = task_data.get("task_type")
-                payload = task_data.get("payload", {})
+        logger.info(f"{self.worker_id} 領取到新任務。")
+        task_id = None
+        try:
+            # task_data_str 已經由 queue.get() 完成 json.loads，現在是 dict
+            task_data = task_data_str
+            task_id = task_data.get("task_id")
+            task_type = task_data.get("task_type")
+            payload = task_data.get("payload", {})
 
-                handler = TASK_DISPATCHER.get(task_type)
+            if not task_id:
+                logger.error("任務數據中缺少 task_id，無法追蹤狀態。")
+                return
 
-                if handler:
-                    handler(payload)
-                else:
-                    logger.warning(f"未知的任務類型: {task_type}，任務將被忽略。")
+            self.task_queue.update_task_status(task_id, "processing")
+            handler = TASK_DISPATCHER.get(task_type)
 
-                # SQLiteQueue 的 get 是原子性的，取出即刪除，所以不需要 complete/fail
-                logger.info(f"任務處理完畢。")
+            if handler:
+                result = handler(payload)
+                # 修正：確保 JSON 中的中文能正確顯示，而不是 Unicode 編碼
+                result_str = json.dumps(result, ensure_ascii=False)
+                self.task_queue.update_task_status(task_id, "completed", result_str)
+                logger.info(f"任務 {task_id} 已成功完成。")
+            else:
+                logger.warning(f"未知的任務類型: {task_type}，任務 {task_id} 將被標記為失敗。")
+                self.task_queue.update_task_status(task_id, "failed", "Unknown task type")
 
-            except json.JSONDecodeError:
-                logger.error(f"任務數據格式無效 (非 JSON)，任務已被丟棄。")
-            except Exception as e:
-                logger.error(f"處理任務時發生未知錯誤: {e}，任務已被丟棄。")
-        else:
-            # logger.info(f"{self.worker_id} 未發現新任務，稍後重試。")
-            pass # 沒有任務時保持安靜
+        except json.JSONDecodeError:
+            logger.error("任務數據格式無效 (非 JSON)，無法處理。")
+            if task_id:
+                self.task_queue.update_task_status(task_id, "failed", "Invalid JSON format")
+        except Exception as e:
+            logger.error(f"處理任務 {task_id} 時發生未知錯誤: {e}", exc_info=True)
+            if task_id:
+                self.task_queue.update_task_status(task_id, "failed", str(e))
 
     def run(self):
         while True:

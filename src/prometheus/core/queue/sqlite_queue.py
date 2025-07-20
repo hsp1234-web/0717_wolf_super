@@ -75,6 +75,7 @@ class SQLiteQueue(BaseQueue):
 
     def _init_db(self):
         with self.conn:
+            # 佇列本身的表
             self.conn.execute(f"""
                 CREATE TABLE IF NOT EXISTS {self.table_name} (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,12 +83,48 @@ class SQLiteQueue(BaseQueue):
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            # 用於追蹤任務狀態的表
+            self.conn.execute("""
+                CREATE TABLE IF NOT EXISTS tasks (
+                    task_id TEXT PRIMARY KEY,
+                    status TEXT NOT NULL,
+                    result TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
     def put(self, item: Any):
-        """將一個項目放入佇列。"""
+        """
+        將一個項目放入佇列，並在 tasks 表中創建一條記錄。
+        item 必須是一個包含 'task_id' 的字典。
+        """
+        item_dict = json.loads(item) if isinstance(item, str) else item
+        task_id = item_dict.get("task_id")
+        if not task_id:
+            raise ValueError("任務數據中必須包含 'task_id'")
+
+        with self.conn:
+            # 寫入佇列
+            self.conn.execute(
+                f"INSERT INTO {self.table_name} (item) VALUES (?)", (json.dumps(item_dict),)
+            )
+            # 創建任務狀態記錄
+            self.conn.execute(
+                "INSERT INTO tasks (task_id, status) VALUES (?, ?)",
+                (task_id, "pending")
+            )
+
+    def update_task_status(self, task_id: str, status: str, result: Optional[str] = None):
+        """更新指定任務的狀態和結果。"""
         with self.conn:
             self.conn.execute(
-                f"INSERT INTO {self.table_name} (item) VALUES (?)", (json.dumps(item),)
+                """
+                UPDATE tasks
+                SET status = ?, result = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE task_id = ?
+                """,
+                (status, result, task_id)
             )
 
     def get(self, block: bool = True, timeout: Optional[float] = None) -> Optional[Any]:

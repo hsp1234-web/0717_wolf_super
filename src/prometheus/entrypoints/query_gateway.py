@@ -5,7 +5,6 @@ from fastapi import HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 import uvicorn
-import os
 import sqlite3
 import uuid
 import time
@@ -60,13 +59,8 @@ async def serve_dashboard():
     return FileResponse(WEB_DIR / 'dashboard.html')
 
 # --- 任務調度端點 (已更新) ---
-from pydantic import Field
-from typing import Dict, Any
 
-class TaskRequest(BaseModel):
-    """定義任務請求的數據結構。"""
-    task_type: str = Field(..., description="任務的類型，例如 'simple_moving_average'")
-    payload: Dict[str, Any] = Field(..., description="任務所需的具體參數")
+# TaskRequest 模型已在頂部定義，此處不再需要
 
 @app.post("/api/v1/submit_task", tags=["任務調度"])
 def submit_task(task: TaskRequest):
@@ -78,18 +72,21 @@ def submit_task(task: TaskRequest):
     import json
     logger = logging.getLogger(__name__)
 
+    # 為任務生成一個唯一的 ID
+    task_id = str(uuid.uuid4())
+
+    # 將 pydantic 模型轉換為字典，並加入 task_id
+    task_data = task.model_dump()
+    task_data['task_id'] = task_id
+
+    # 序列化為 JSON 字串存儲
+    task_data_str = json.dumps(task_data)
+
     # 提供資料庫路徑來實例化佇列
     task_queue = SQLiteQueue(db_path=DB_PATH)
-    # 將 pydantic 模型轉換為字典，再序列化為 JSON 字串存儲
-    task_data_str = task.model_dump_json()
-
-    # SQLiteQueue 使用 put 方法，而不是 enqueue
     task_queue.put(task_data_str)
 
-    # 由於 put 不返回 ID，我們需要自己生成一個或從請求中獲取
-    # 為了簡單起見，我們暫時不返回特定 ID，但記錄日誌
-    task_id = "N/A" # 簡單實現，不返回 ID
-    logger.info(f"接收到新任務，類型: {task.task_type}，已入列")
+    logger.info(f"接收到新任務 (ID: {task_id})，類型: {task.task_type}，已入列")
 
     return {"message": "任務已成功提交", "task_id": task_id}
 
